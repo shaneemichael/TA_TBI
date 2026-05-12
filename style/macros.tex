@@ -1,0 +1,19 @@
+% =============================================================================
+% style/macros.tex
+% Single responsibility: define custom LaTeX commands.
+% Change this file when adding/renaming a custom command.
+% Do NOT put package imports, page geometry, or content here.
+% =============================================================================
+
+% Indonesian text examples (italicised; tagged for find/replace if venue style differs)
+\newcommand{\id}[1]{\textit{#1}}
+
+% In-flight drafting markers; remove or no-op before final submission
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{TODO:} #1}}
+\newcommand{\note}[1]{\textcolor{blue}{[\textit{note: #1}]}}
+
+% Convenience: paper-internal cross-references
+\newcommand{\secref}[1]{Section~\ref{#1}}
+\newcommand{\figref}[1]{Figure~\ref{#1}}
+\newcommand{\tabref}[1]{Table~\ref{#1}}
+\newcommand{\eqref}[1]{Equation~\ref{#1}}

@@ -1,0 +1,39 @@
+% =============================================================================
+% paper/main.tex
+% Single responsibility: orchestrate the research paper.
+%
+% Presentation lives in ../style/  (packages, macros, preamble)
+% Cross-document content in ../shared/  (hypotheses, RQs, strategies)
+% This file decides only:
+%   - document class / title metadata
+%   - section ordering
+%   - bibliography path
+%
+% Build: latexmk -pdf main.tex   (or)   pdflatex 4-pass with bibtex
+% =============================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+\input{../style/packages}
+\input{../style/macros}
+\input{../style/preamble}
+
+\title{Preprocessing the Polysemous Clitic \id{-nya} for Indonesian Information Retrieval: A Five-Condition Diagnostic Study on MIRACL-id}
+\author{Maskrio\thanks{Affiliation TBD. Correspondence: \texttt{yosemaranata@gmail.com}.}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\input{sections/00_abstract}
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_methodology}
+\input{sections/04_experiments}
+\input{sections/05_results}
+\input{sections/06_discussion}
+\input{sections/07_conclusion}
+
+\bibliography{../references}
+
+\end{document}

@@ -1,0 +1,81 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.bcf
+*.run.xml
+*.nav
+*.snm
+*.vrb
+*.idx
+*.ind
+*.ilg
+*.glo
+*.gls
+*.glg
+*.acn
+*.acr
+*.alg
+*.xdy
+
+# LaTeX intermediates
+*-converted-to.*
+*.ent
+*.dvi
+*.ps
+# DO commit the final PDFs:
+# *.pdf
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python (for experiment code)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.python-version
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Experiment artifacts (large files, track separately or via DVC)
+results/raw/
+results/indexes/
+*.faiss
+*.bin
+*.pkl
+*.npy
+*.npz
+*.pt
+*.ckpt
+
+# Annotation working files (raw, untriaged)
+annotation/raw/
+annotation/draft/
+
+# Temporary
+tmp/
+.cache/

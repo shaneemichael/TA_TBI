@@ -1,0 +1,28 @@
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Implementation}
+
+\todo{Fill in once code is written. Cover: pyserini version, sentence-transformers version, PySastrawi version, FAISS configuration, hardware (Kaggle T4), random seeds.}
+
+\subsection{Preprocessing pipeline verification}
+
+\todo{Day~1 task. Report the false-positive rate of Strategy~2 (Naive strip) on a 50-word test set of known non-clitic words ending in `nya'. Report the same set after Strategy~3 (Sastrawi clitic with dictionary guard) to confirm protection.}
+
+\subsection{Indexing}
+
+For each of the five preprocessing strategies, two indices are built per the BM25 and BGE-m3 configurations specified in Section~\ref{sec:method}.
+
+\subsection{Oracle subset annotation}
+
+\todo{Week~2 task. Report: number of queries sampled, number with usable anaphoric -nya in gold passages, inter-annotator agreement on the 20\% double-annotated portion.}
+
+\subsection{Sensitivity stratification}
+
+Per-query \id{-nya} sensitivity scores are computed using the formula
+
+\begin{equation}
+\mathrm{sensitivity}(q) = \alpha \cdot c_{\text{nya}}(q) + \beta \cdot c_{\text{ana}}(q) + \gamma \cdot \mathbf{1}[\text{queried entity referenced via -nya}]
+\end{equation}
+
+where $c_{\text{nya}}$ and $c_{\text{ana}}$ are counts of total and heuristically-detected anaphoric \id{-nya} occurrences in the gold-relevant passages, with weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ (frozen prior to main analysis). Queries are stratified into low/mid/high tertiles for the H5 analysis.

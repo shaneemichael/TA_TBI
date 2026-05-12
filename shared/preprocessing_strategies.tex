@@ -1,0 +1,14 @@
+% =============================================================================
+% shared/preprocessing_strategies.tex
+% Single responsibility: canonical enumeration of the 5 preprocessing conditions.
+% Change this file when a strategy is added/removed or its specification changes.
+% \input from any document that needs to enumerate the strategies.
+% =============================================================================
+
+\begin{enumerate}
+    \item \textbf{Keep} --- identity preprocessing; UTF-8 normalised to NFC.
+    \item \textbf{Naive strip} --- regex \texttt{(\textbackslash w+?)nya\textbackslash b} replaced with the captured group. Included as a deliberate harm-baseline; over-strips \id{punya}, \id{tanya}, \id{hanya}, \id{biasanya}, and proper nouns ending in \id{-nya}.
+    \item \textbf{Sastrawi clitic} --- Sastrawi's \texttt{RemovePossessivePronoun} filter applied with an explicit Indonesian-dictionary guard; strips \id{-nya} only when the result is a known root, protecting non-clitic words.
+    \item \textbf{Sentinel} --- \id{-nya} replaced with a spaced sentinel token \texttt{<NYA>}. Diagnostic condition that removes lexical match while preserving the information that a clitic was present.
+    \item \textbf{Oracle} --- manual replacement of anaphoric \id{-nya} with its resolved antecedent noun phrase, on a 100--150 query--passage subset. Annotation guideline drafted in advance; 20\% double-annotated for inter-annotator agreement.
+\end{enumerate}

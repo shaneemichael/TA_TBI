@@ -1,0 +1,30 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\todo{Populate after results. Address each of:}
+
+\subsection{What our results say about Indonesian preprocessing defaults}
+
+\todo{Connect findings back to the Tala (2003) baseline and the Camacho-Collados et al. (2023) finding for English. Position as confirmatory or contrastive.}
+
+\subsection{Implications for production Indonesian retrieval systems}
+
+\todo{Concrete recommendation: should practitioners preprocess -nya, and if so, how? Tie to the architecture-interaction result.}
+
+\subsection{The oracle ceiling and what it implies for future anaphora-resolution research}
+
+\todo{If oracle gain is large: future research worth pursuing. If small: not the bottleneck.}
+
+\subsection{Limitations}
+
+The oracle condition measures perfect \emph{and selective} resolution: we modify only gold-relevant passages, simulating an upper bound where a hypothetical resolver also knows which passages are worth resolving. A deployable system would have to resolve anaphoras corpus-wide, introducing both true positives and false positives. The realistic deployable gain is therefore bounded above by oracle gain $\times$ resolution accuracy $\times$ a selectivity factor.
+
+Our evaluation is on a single benchmark (MIRACL-id). \todo{Add note on Mr. TyDi-id replication if attempted.} Generalisation to other Indonesian retrieval contexts (legal, medical, social-media) requires additional evaluation.
+
+The Sastrawi clitic condition (Strategy~3) depends on Sastrawi's internal Indonesian root dictionary; rare or technical-domain vocabulary may produce false positives and false negatives. \todo{Quantify if observed in failure analysis.}
+
+The naive-strip baseline (Strategy~2) is a deliberate strawman; the more important comparison is between Keep, Sastrawi clitic, and Oracle. Naive is included to quantify the harm of a preprocessing pattern that does appear in practitioner code, not to argue that anyone should use it.
+
+\subsection{Threats to construct validity}
+
+The choice to apply preprocessing symmetrically to queries and passages reflects standard IR experimental practice but may differ from production deployments where query- and corpus-side preprocessing are independently configured. \todo{Discuss if any condition appears unusually sensitive to this choice.}

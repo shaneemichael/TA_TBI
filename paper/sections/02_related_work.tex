@@ -1,0 +1,20 @@
+\section{Related Work}
+\label{sec:related}
+
+Three bodies of work are directly relevant: the linguistics and computational morphology of Indonesian \id{-nya}; Indonesian information retrieval and stemming; and anaphora resolution applied to retrieval and question answering.
+
+\subsection{The Indonesian clitic \id{-nya}}
+
+\id{-nya} is descriptively well-documented in the linguistics literature, where it is consistently analysed as polysemous across at least four functions: possessive third-person singular, definite marker, anaphoric pronoun, and nominaliser \citep{denistia2021morphology}. The verbal-suffix nominalisation question has its own dedicated treatment in linguistic theory. Computational morphology tools that handle Indonesian cliticisation include MorphInd \citep{morphind_larasati} and the recent IndoMorph engine \citep{indomorph2025}. The most directly relevant computational study on \id{-nya} comes not from Indonesian but from Malay: a 2021 paper classifies the short possessive clitic \id{nya} in Malay text to support anaphor candidate determination, reporting accuracies of 88\% on pleonastic uses, 94\% on human-referring uses, and 63\% on non-human-referring uses \citep{malay_nya_2021}. That work stops at classification and does not measure retrieval impact.
+
+\subsection{Indonesian information retrieval}
+
+The canonical study of Indonesian stemming for IR is \citet{tala2003stemming}, which evaluates several stemming algorithms on a TREC-style Indonesian collection using pre-neural vector-space methods. The result --- that stemming generally helps Indonesian IR --- has been widely cited but has not, to our knowledge, been re-validated against modern dense retrieval. Subsequent work compares stemming algorithms (Sastrawi, Nazief--Adriani, Porter variants) on \emph{stemming accuracy} rather than retrieval effectiveness; Sastrawi consistently reports the highest accuracy at approximately 95.2\%. Indonesian language models including IndoBERT \citep{wilie2020indonlu} and IndoLEM \citep{koto2020indolem} have established benchmarks for Indonesian NLU, and the Indonesian split of MIRACL \citep{zhang2023miracl} provides a high-quality, native-annotated retrieval benchmark. Mr.\ TyDi \citep{zhang2021mrtydi} additionally provides an Indonesian split designed for dense-retrieval evaluation. None of these resources isolates clitic preprocessing as an experimental variable.
+
+\subsection{Anaphora resolution and retrieval}
+
+\citet{mitkov2002anaphora} demonstrated that anaphora resolution improves both information retrieval and question answering for English, and subsequent work has extended this finding across languages and tasks. For Indonesian specifically, \citet{saputri2021indonesian} present a multi-pass sieve coreference resolver, but the system is not connected to retrieval evaluation. The intersection of \id{-nya}-aware preprocessing and modern Indonesian dense retrieval --- the focus of the present study --- is the gap that, after a deliberate scoping search, we find empty.
+
+\subsection{Preprocessing for transformer-based models}
+
+A recent comparative survey \citep{camacho2023preprocessing} reports that classical preprocessing techniques (stemming, stopword removal, lowercasing) often do not benefit transformer-based classifiers in English-centric tasks. The generality of that finding to morphologically distinctive low-resource languages, and specifically to retrieval rather than classification, is open. Our results provide one data point.

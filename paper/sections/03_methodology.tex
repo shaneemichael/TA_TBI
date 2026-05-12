@@ -1,0 +1,44 @@
+\section{Methodology}
+\label{sec:method}
+
+\subsection{Experimental design}
+
+We adopt a within-subjects factorial design with two factors: preprocessing strategy (five levels) and retriever architecture (two levels). All queries are evaluated under all combinations of conditions, except Strategy~5 (Oracle), which is evaluated only on a manually annotated subset of approximately 150 queries.
+
+\subsection{Hypotheses}
+
+We pre-register five falsifiable hypotheses:
+
+\input{../shared/hypotheses}
+
+\subsection{Preprocessing conditions}
+
+Each strategy is applied identically to queries and passages.
+
+\input{../shared/preprocessing_strategies}
+
+Implementation details for each strategy --- including dictionary-guard wrapping for Strategy~3 and the false-positive verification protocol for Strategy~2 --- are reported in \secref{sec:experiments}.
+
+\subsection{Retrievers}
+
+We evaluate two retriever architectures spanning the sparse--dense spectrum:
+
+\paragraph{BM25.} Standard BM25 implementation in pyserini, with $k_1 = 0.9$ and $b = 0.4$ (standard MIRACL configuration).
+
+\paragraph{BGE-m3.} The dense embedding mode of BGE-m3 \citep{chen2024bgem3}, with maximum sequence length capped at 512 tokens. Indices built using FAISS HNSW (M=32, efConstruction=200).
+
+\subsection{Dataset}
+
+We evaluate on the Indonesian split of MIRACL \citep{zhang2023miracl}: approximately 1.4 million Wikipedia passages and 960 development-set queries with native-annotated relevance judgments.
+
+\subsection{Metrics}
+
+\textbf{Primary:} nDCG@10. \textbf{Secondary:} MRR@100, nDCG@1, Recall@10, Recall@100. nDCG@1 is reported as a more sensitive metric in case of saturation effects on dense baselines.
+
+\subsection{Statistical analysis}
+
+Per-query metrics are computed for all conditions. Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across the $\binom{5}{2} = 10$ pairs per retriever ($\alpha = 0.005$ within each retriever family). Effect sizes are reported as Cliff's $\delta$. Bootstrap 95\% confidence intervals on $\Delta$nDCG@10 are computed with 10{,}000 resamples. The H5 stratification analysis uses a mixed-effects model with strategy-by-stratum interaction.
+
+\subsection{Reproducibility and pre-registration}
+
+This methodology was committed to a public Git repository before any experimental code was run, serving as a lightweight pre-registration of the design. All code, intermediate results, and analysis scripts will be released under an open licence on completion.

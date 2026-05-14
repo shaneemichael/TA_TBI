@@ -3,11 +3,11 @@
 
 \subsection{Experimental design}
 
-We adopt a within-subjects factorial design with two factors: preprocessing strategy (four levels) and retriever architecture (two levels). Every dev-set query is evaluated under every combination of conditions.
+We adopt a within-subjects factorial design with two factors: preprocessing strategy (five levels) and retriever architecture (two levels). Every dev-set query is evaluated under every combination of conditions.
 
 \subsection{Hypotheses}
 
-We pre-register four falsifiable hypotheses corresponding to RQ1--RQ4:
+We pre-register five falsifiable hypotheses corresponding to RQ1--RQ5:
 
 \input{../shared/hypotheses}
 
@@ -17,7 +17,7 @@ Each strategy is applied identically to queries and passages.
 
 \input{../shared/preprocessing_strategies}
 
-Implementation details for each strategy --- including dictionary-guard wrapping for Strategy~3 and the false-positive verification protocol for Strategy~2 --- are reported in \secref{sec:experiments}.
+Implementation details for each strategy --- including dictionary-guard wrapping for Strategy~3, the false-positive verification protocol for Strategy~2, and the heuristic-classifier plus antecedent-selection rules for Strategy~5 --- are reported in \secref{sec:experiments}.
 
 \subsection{Retrievers}
 
@@ -44,11 +44,11 @@ Per-query \id{-nya} sensitivity scores are computed using the formula
 \mathrm{sensitivity}(q) = \alpha \, c_{\text{nya}}(q) + \beta \, c_{\text{ana}}(q) + \gamma \, \mathbf{1}[\text{queried entity referenced via -nya}]
 \label{eq:sensitivity}
 \end{equation}
-where $c_{\text{nya}}$ and $c_{\text{ana}}$ are counts of total and heuristically-detected anaphoric \id{-nya} occurrences in the gold-relevant passages, with weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ (frozen prior to main analysis). Queries are stratified into low/mid/high tertiles for the H4 analysis.
+where $c_{\text{nya}}$ and $c_{\text{ana}}$ are counts of total and heuristically-detected anaphoric \id{-nya} occurrences in the gold-relevant passages, with weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ (frozen prior to main analysis). Queries are stratified into low/mid/high tertiles for the H5 analysis.
 
 \subsection{Statistical analysis}
 
-Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across the $\binom{4}{2} = 6$ pairs per retriever ($\alpha = 0.0083$ within each retriever family). Effect sizes are reported as Cliff's $\delta$. Bootstrap 95\% confidence intervals on $\Delta$nDCG@10 are computed with 10{,}000 resamples. The H4 stratification analysis uses a mixed-effects model with strategy-by-stratum interaction. The protocol follows the recommendations of Dror et al.~\cite{dror2018hitchhiker}.
+Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across the $\binom{5}{2} = 10$ pairs per retriever ($\alpha = 0.005$ within each retriever family). Effect sizes are reported as Cliff's $\delta$. Bootstrap 95\% confidence intervals on $\Delta$nDCG@10 are computed with 10{,}000 resamples. The H4 stratification analysis uses a mixed-effects model with strategy-by-stratum interaction. The protocol follows the recommendations of Dror et al.~\cite{dror2018hitchhiker}.
 
 \subsection{Reproducibility and pre-registration}
 

@@ -1,17 +1,20 @@
 % =============================================================================
 % shared/hypotheses.tex
-% Single responsibility: canonical statement of the four pre-registered hypotheses.
+% Single responsibility: canonical statement of the five pre-registered hypotheses.
 % Change this file when a hypothesis text or test is updated.
 % \input from any document that needs to state the hypotheses.
 % =============================================================================
 
-\noindent\textbf{H1 (omnibus).} At least one of the four preprocessing strategies yields a significantly different per-query nDCG@10 distribution than the others, separately for each retriever architecture. \textit{Test:} Friedman's test, $\alpha = 0.05$.
+\noindent\textbf{H1 (omnibus).} At least one of the five preprocessing strategies yields a significantly different per-query nDCG@10 distribution than the others, separately for each retriever architecture. \textit{Test:} Friedman's test, $\alpha = 0.05$.
 
 \smallskip
 \noindent\textbf{H2 (harm of naive strip).} Naive regex \id{-nya} stripping yields significantly lower nDCG@10 than Keep on both retrievers, due to over-stripping of high-frequency non-clitic words such as \id{punya}, \id{tanya}, and \id{hanya}. \textit{Test:} one-tailed paired Wilcoxon signed-rank, $\alpha = 0.05$.
 
 \smallskip
-\noindent\textbf{H3 (architecture interaction).} The optimal preprocessing strategy among Keep, Sastrawi clitic, and Sentinel differs between BM25 and BGE-m3. \textit{Test:} comparison of best-performing strategy per retriever with bootstrap confidence intervals on the gain difference.
+\noindent\textbf{H3 (architecture interaction).} The optimal preprocessing strategy among Keep, Sastrawi clitic, Sentinel, and Rule-resolved differs between BM25 and BGE-m3. \textit{Test:} comparison of best-performing strategy per retriever with bootstrap confidence intervals on the gain difference.
 
 \smallskip
-\noindent\textbf{H4 (sensitivity stratification).} The magnitude of differences between strategies is larger on high-\id{-nya}-sensitivity queries than on low-sensitivity queries. \textit{Test:} mixed-effects model with strategy-by-stratum interaction term.
+\noindent\textbf{H4 (anaphora-resolution gain).} Rule-resolved yields significantly higher nDCG@10 than the best of Keep, Sastrawi clitic, and Sentinel for both retrievers. \textit{Test:} paired Wilcoxon signed-rank versus the per-retriever-best non-resolving strategy, Bonferroni-corrected $\alpha = 0.025$.
+
+\smallskip
+\noindent\textbf{H5 (sensitivity stratification).} The magnitude of differences between strategies is larger on high-\id{-nya}-sensitivity queries than on low-sensitivity queries. \textit{Test:} mixed-effects model with strategy-by-stratum interaction term.

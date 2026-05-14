@@ -5,7 +5,7 @@
 % \input from any document that states the research questions.
 % =============================================================================
 
-\noindent\textbf{RQ1 (primary).} Among four preprocessing strategies for the Indonesian polysemous clitic \id{-nya} --- Keep, Naive regex strip, dictionary-aware Sastrawi clitic strip, and Sentinel masking --- which yields the highest retrieval effectiveness on MIRACL-id?
+\noindent\textbf{RQ1 (primary).} Among five preprocessing strategies for the Indonesian polysemous clitic \id{-nya} --- Keep, Naive regex strip, dictionary-aware Sastrawi clitic strip, Sentinel masking, and rule-based anaphora resolution --- which yields the highest retrieval effectiveness on MIRACL-id?
 
 \smallskip
 \noindent\textbf{RQ2 (architecture interaction).} Does the optimal preprocessing strategy depend on retriever architecture, specifically between sparse BM25 and dense BGE-m3?
@@ -14,4 +14,7 @@
 \noindent\textbf{RQ3 (harm quantification).} How large is the retrieval-effectiveness penalty incurred by the naive regex \id{-nya} pattern that is widely distributed in practitioner code despite over-stripping common non-clitic words?
 
 \smallskip
-\noindent\textbf{RQ4 (sensitivity stratification).} Are the differences between strategies larger on queries whose gold passages contain high concentrations of anaphoric \id{-nya} than on queries with little or no \id{-nya} content?
+\noindent\textbf{RQ4 (anaphora-resolution gain).} Does a fully automated rule-based anaphora resolver for \id{-nya} yield a measurable retrieval-effectiveness gain over the best non-resolving strategy, and on which query population is the gain concentrated?
+
+\smallskip
+\noindent\textbf{RQ5 (sensitivity stratification).} Are the differences between strategies larger on queries whose gold passages contain high concentrations of anaphoric \id{-nya} than on queries with little or no \id{-nya} content?

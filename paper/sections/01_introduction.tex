@@ -9,7 +9,7 @@ A separate and equally untested concern is the \emph{quality} of the \id{-nya} s
 
 \subsection{Research questions}
 
-This paper isolates Indonesian \id{-nya} preprocessing as an experimental variable in modern retrieval and addresses four pre-registered questions on the Indonesian split of MIRACL~\cite{zhang2023miracl}:
+This paper isolates Indonesian \id{-nya} preprocessing as an experimental variable in modern retrieval and addresses five pre-registered questions on the Indonesian split of MIRACL~\cite{zhang2023miracl}:
 
 \input{../shared/research_questions}
 
@@ -20,6 +20,7 @@ Our contributions are:
 \begin{itemize}
     \item The first controlled study isolating Indonesian \id{-nya} preprocessing as an experimental variable in a modern dense-retrieval setting, on both sparse (BM25) and dense (BGE-m3) retrievers.
     \item Empirical quantification of the harm caused by the naive regex \id{-nya} stripping pattern that is widely distributed in practitioner code despite over-stripping common non-clitic words --- a harm-baseline that, to our knowledge, has not been previously measured.
+    \item A fully automated rule-based \id{-nya} anaphora resolver that operates over the full MIRACL-id corpus at CPU-only cost, and a measurement of the retrieval-effectiveness gain it produces over the best non-resolving strategy.
     \item A sensitivity-stratified analysis identifying the query population on which preprocessing decisions matter most, providing actionable guidance for system designers building Indonesian RAG and search products.
 \end{itemize}
 

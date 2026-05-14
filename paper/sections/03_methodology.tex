@@ -3,7 +3,7 @@
 
 \subsection{Experimental design}
 
-We adopt a within-subjects design in which every query is evaluated under every combination of chunking method, sentence order, anaphora stratum, and provenance label. The two primary factors are \textit{chunking method} (Naive vs.\ Late, following \citet{gunther2024latechunking}) and \textit{sentence order} (Original vs.\ Shuffled). Secondary factors are \textit{chunk size} ($\{256, 512\}$ tokens) for RQ5 and \textit{reranker stage} (first-stage retrieval vs.\ cross-encoder reranked) for RQ4.
+We adopt a within-subjects design in which every query is evaluated under every combination of chunking method, sentence order, anaphora stratum, and provenance label. The two primary factors are \textit{chunking method} (Naive vs.\ Late, following G\"unther et al.~\cite{gunther2024latechunking}) and \textit{sentence order} (Original vs.\ Shuffled). Secondary factors are \textit{chunk size} ($\{256, 512\}$ tokens) for RQ5 and \textit{reranker stage} (first-stage retrieval vs.\ cross-encoder reranked) for RQ4.
 
 \subsection{Hypotheses}
 
@@ -13,7 +13,7 @@ We pre-register five falsifiable hypotheses corresponding to RQ1--RQ5:
 
 \subsection{Chunking conditions}
 
-\paragraph{Naive chunking.} Each document is split into fixed-length chunks (default 512 tokens), each chunk is independently passed through BGE-m3 \citep{chen2024bgem3}, and chunk vectors are obtained by mean-pooling token embeddings. This is the standard baseline.
+\paragraph{Naive chunking.} Each document is split into fixed-length chunks (default 512 tokens), each chunk is independently passed through BGE-m3 \cite{chen2024bgem3}, and chunk vectors are obtained by mean-pooling token embeddings. This is the standard baseline.
 
 \paragraph{Late chunking.} Each document is passed through BGE-m3 in a single forward pass up to the 8{,}192-token context limit, and chunk vectors are obtained by mean-pooling token embeddings within each chunk's span \emph{after} the encoder. Documents exceeding the context limit fall back to sliding-window late chunking with a 50\% overlap, per the reference implementation.
 
@@ -32,11 +32,11 @@ A manually annotated subset of MIRACL-id queries (target $n = 150$) is stratifie
 
 \subsection{Retriever and reranker}
 
-The primary first-stage retriever is BGE-m3 in dense-embedding mode. The optional second stage uses BGE-reranker-v2-m3 over the top-100 candidates. We additionally report BM25 \citep{robertson2009bm25} as a sparse reference, with $k_1 = 0.9$ and $b = 0.4$ following the MIRACL convention.
+The primary first-stage retriever is BGE-m3 in dense-embedding mode. The optional second stage uses BGE-reranker-v2-m3 over the top-100 candidates. We additionally report BM25 \cite{robertson2009bm25} as a sparse reference, with $k_1 = 0.9$ and $b = 0.4$ following the MIRACL convention.
 
 \subsection{Dataset}
 
-We evaluate on the Indonesian split of MIRACL \citep{zhang2023miracl}: approximately 1.4 million Wikipedia passages and 960 development-set queries with native-annotated relevance judgments. For RQ3 we additionally label each passage as native or translated using MIRACL's provenance metadata.
+We evaluate on the Indonesian split of MIRACL \cite{zhang2023miracl}: approximately 1.4 million Wikipedia passages and 960 development-set queries with native-annotated relevance judgments. For RQ3 we additionally label each passage as native or translated using MIRACL's provenance metadata.
 
 \subsection{Metrics}
 
@@ -44,7 +44,7 @@ We evaluate on the Indonesian split of MIRACL \citep{zhang2023miracl}: approxima
 
 \subsection{Statistical analysis}
 
-Paired bootstrap on per-query $\Delta$nDCG@10 with 10{,}000 resamples produces 95\% confidence intervals for every method comparison. Holm correction is applied within each stratification family. Mixed-effects models with random intercepts per query are used for the size $\times$ method (H5) and shuffle $\times$ method (H1) interaction terms. The protocol follows the recommendations of \citet{dror2018hitchhiker}.
+Paired bootstrap on per-query $\Delta$nDCG@10 with 10{,}000 resamples produces 95\% confidence intervals for every method comparison. Holm correction is applied within each stratification family. Mixed-effects models with random intercepts per query are used for the size $\times$ method (H5) and shuffle $\times$ method (H1) interaction terms. The protocol follows the recommendations of Dror et al.~\cite{dror2018hitchhiker}.
 
 \subsection{Reproducibility and pre-registration}
 

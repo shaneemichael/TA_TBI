@@ -1,13 +1,8 @@
 % =============================================================================
 % style/preamble.tex
-% Single responsibility: page geometry, citation style, section spacing.
-% Change this file when adjusting margins, citation format, or visual spacing.
-% Do NOT put package imports here (use packages.tex) or custom commands (use macros.tex).
+% Single responsibility: bibliography style + venue-specific spacing tweaks.
+% Page geometry and section formatting are owned by the IEEEtran class.
+% Change this file when adjusting citation format or visual spacing.
 % =============================================================================
 
-\geometry{margin=2.5cm}
-\bibliographystyle{plainnat}
-
-% Section spacing — used by both paper and proposal; tighten further only in venue-specific overrides
-\titlespacing*{\section}{0pt}{1.4ex plus 0.3ex minus 0.3ex}{0.8ex plus 0.2ex}
-\titlespacing*{\subsection}{0pt}{1.0ex plus 0.2ex minus 0.2ex}{0.6ex plus 0.1ex}
+\bibliographystyle{IEEEtran}

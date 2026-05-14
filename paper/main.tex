@@ -3,7 +3,7 @@
 % Single responsibility: orchestrate the research paper.
 %
 % Presentation lives in ../style/  (packages, macros, preamble)
-% Cross-document content in ../shared/  (hypotheses, RQs, strategies)
+% Cross-document content in ../shared/  (hypotheses, RQs)
 % This file decides only:
 %   - document class / title metadata
 %   - section ordering
@@ -12,15 +12,19 @@
 % Build: latexmk -pdf main.tex   (or)   pdflatex 4-pass with bibtex
 % =============================================================================
 
-\documentclass[11pt,a4paper]{article}
+\documentclass[conference,a4paper,10pt]{IEEEtran}
 
 \input{../style/packages}
 \input{../style/macros}
 \input{../style/preamble}
 
-\title{Does Late Chunking Resolve Indonesian Anaphora? A Sentence-Shuffle Probe of Long-Context Retrieval on MIRACL-id}
-\author{Maskrio\thanks{Affiliation TBD. Correspondence: \texttt{yosemaranata@gmail.com}.}}
-\date{\today}
+\title{Does Late Chunking Resolve Indonesian Anaphora?\\A Sentence-Shuffle Probe of Long-Context Retrieval on MIRACL-id}
+
+\author{%
+    \IEEEauthorblockN{Maskrio}\\
+    \IEEEauthorblockA{Faculty of Computer Science, Universitas Indonesia, Depok, 16424\\
+    \texttt{yosemaranata@gmail.com}}%
+}
 
 \begin{document}
 \maketitle

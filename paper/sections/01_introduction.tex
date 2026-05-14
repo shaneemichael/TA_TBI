@@ -1,7 +1,7 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Modern retrieval-augmented generation pipelines, including those now deployed in production for the Indonesian market, split documents into independent chunks before embedding them. Each chunk is encoded in isolation, indexed, and retrieved by similarity to the query. This default --- inherited largely from English-centric pipelines --- ignores a structural property of Indonesian that English does not share: Indonesian is a pro-drop language in which subjects are routinely null, and a single high-frequency clitic, \id{-nya}, carries definite, possessive, and anaphoric reference to entities mentioned several sentences earlier. The clitic appears in roughly 19.5\% of Indonesian suffix occurrences \citep{denistia2021morphology}. Consider three minimal examples that any naive-chunked pipeline silently degrades on:
+Modern retrieval-augmented generation pipelines, including those now deployed in production for the Indonesian market, split documents into independent chunks before embedding them. Each chunk is encoded in isolation, indexed, and retrieved by similarity to the query. This default --- inherited largely from English-centric pipelines --- ignores a structural property of Indonesian that English does not share: Indonesian is a pro-drop language in which subjects are routinely null, and a single high-frequency clitic, \id{-nya}, carries definite, possessive, and anaphoric reference to entities mentioned several sentences earlier. The clitic appears in roughly 19.5\% of Indonesian suffix occurrences \cite{denistia2021morphology}. Consider three minimal examples that any naive-chunked pipeline silently degrades on:
 
 \begin{itemize}
     \item \textbf{Health.} ``\id{Pasien menderita hipertensi kronis. Dokter meresepkan amlodipin 10mg. Beliau menyarankan pasien mengonsumsinya setiap pagi.}'' The query \id{Kapan amlodipin diminum?} requires \id{-nya} in the third sentence to bind to \id{amlodipin} in the second.
@@ -13,7 +13,7 @@ In English, equivalent references would be lexicalised as overt pronouns (\texti
 
 \subsection{The mechanism question}
 
-\citet{gunther2024latechunking} recently introduced \emph{Late Chunking}, in which a long-context encoder processes the entire document and per-chunk vectors are obtained by pooling token embeddings within each chunk's span \emph{after} the forward pass. Reported gains on long-context retrieval are large --- up to 24\% relative on selected benchmarks --- and the method is by now widely adopted. Yet the reason it works is unclear. \citet{wang2024dapr} report that 53.5\% of retrieval errors stem from missing document context, motivating the long-context approach; but the specific mechanism --- whether Late Chunking resolves anaphora in any linguistically meaningful sense or merely smooths chunk vectors towards a document-wide mean --- is unspecified. The mechanism question matters because the two stories make divergent predictions: if Late Chunking is genuinely anaphora-aware, it should help disproportionately when the query depends on an unresolved reference; if it is a regularizer over document-wide statistics, it should help uniformly regardless of reference structure.
+G\"unther et al.~\cite{gunther2024latechunking} recently introduced \emph{Late Chunking}, in which a long-context encoder processes the entire document and per-chunk vectors are obtained by pooling token embeddings within each chunk's span \emph{after} the forward pass. Reported gains on long-context retrieval are large --- up to 24\% relative on selected benchmarks --- and the method is by now widely adopted. Yet the reason it works is unclear. Wang et al.~\cite{wang2024dapr} report that 53.5\% of retrieval errors stem from missing document context, motivating the long-context approach; but the specific mechanism --- whether Late Chunking resolves anaphora in any linguistically meaningful sense or merely smooths chunk vectors towards a document-wide mean --- is unspecified. The mechanism question matters because the two stories make divergent predictions: if Late Chunking is genuinely anaphora-aware, it should help disproportionately when the query depends on an unresolved reference; if it is a regularizer over document-wide statistics, it should help uniformly regardless of reference structure.
 
 \subsection{Indonesian as a probe}
 
@@ -21,7 +21,7 @@ Indonesian is, we argue, an unusually clean probe of this distinction. Its pro-d
 
 \subsection{Research questions and contributions}
 
-This paper addresses five pre-registered research questions on the Indonesian split of MIRACL \citep{zhang2023miracl}, comparing Naive (per-chunk) and Late (full-document) chunking under the BGE-m3 long-context encoder \citep{chen2024bgem3}:
+This paper addresses five pre-registered research questions on the Indonesian split of MIRACL \cite{zhang2023miracl}, comparing Naive (per-chunk) and Late (full-document) chunking under the BGE-m3 long-context encoder \cite{chen2024bgem3}:
 
 \input{../shared/research_questions}
 

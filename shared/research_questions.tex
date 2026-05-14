@@ -1,10 +1,14 @@
 % =============================================================================
 % shared/research_questions.tex
-% Single responsibility: canonical statement of RQ-A and RQ-B.
+% Single responsibility: canonical statement of RQ1--RQ5.
 % Change this file when an RQ is rephrased or rescoped.
 % \input from any document that states the research questions.
 % =============================================================================
 
-\paragraph{RQ-A (primary).} Among five preprocessing strategies for Indonesian \id{-nya} --- keep, naive regex strip, dictionary-aware Sastrawi clitic strip, sentinel mask, and oracle anaphora resolution on a held-out subset --- which yields the best retrieval effectiveness on MIRACL-id, and does the optimal strategy depend on retriever architecture (BM25 vs.\ BGE-m3)?
-
-\paragraph{RQ-B (embedded).} Does anaphora-aware document preprocessing --- replacing anaphoric \id{-nya} with its resolved antecedent --- provide an upper bound on attainable improvement from \id{-nya}-aware preprocessing for Indonesian retrieval, and how large is that upper bound?
+\begin{description}
+    \item[\textbf{RQ1 (headline).}] Does Late Chunking actually resolve cross-sentence anaphora on Indonesian retrieval, or does its gain over Naive chunking come from a bag-of-document smoothing effect that is invariant to sequential order?
+    \item[\textbf{RQ2 (linguistic stratification).}] Are Late Chunking's gains heterogeneous by Indonesian anaphora type --- specifically across the \id{-nya} clitic, overt pronouns (\id{ia}, \id{dia}), zero-anaphora, and no-anaphora strata?
+    \item[\textbf{RQ3 (provenance contrast).}] Does the benefit of Late Chunking transfer across native and translated portions of id-Wiki, given that translationese is known to over-realize pronouns that the encoder can bind through?
+    \item[\textbf{RQ4 (pipeline robustness).}] Does the Late-vs-Naive gain at first-stage retrieval survive cross-encoder reranking with BGE-reranker-v2-m3?
+    \item[\textbf{RQ5 (chunk-size interaction).}] Is the chunk-size $\times$ method interaction shaped by Indonesian morphology --- specifically, is Late's relative gain larger at 256 tokens than at 512, where shorter chunks have a higher anaphora-cut rate?
+\end{description}

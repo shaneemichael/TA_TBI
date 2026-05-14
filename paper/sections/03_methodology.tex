@@ -3,42 +3,49 @@
 
 \subsection{Experimental design}
 
-We adopt a within-subjects factorial design with two factors: preprocessing strategy (five levels) and retriever architecture (two levels). All queries are evaluated under all combinations of conditions, except Strategy~5 (Oracle), which is evaluated only on a manually annotated subset of approximately 150 queries.
+We adopt a within-subjects design in which every query is evaluated under every combination of chunking method, sentence order, anaphora stratum, and provenance label. The two primary factors are \textit{chunking method} (Naive vs.\ Late, following \citet{gunther2024latechunking}) and \textit{sentence order} (Original vs.\ Shuffled). Secondary factors are \textit{chunk size} ($\{256, 512\}$ tokens) for RQ5 and \textit{reranker stage} (first-stage retrieval vs.\ cross-encoder reranked) for RQ4.
 
 \subsection{Hypotheses}
 
-We pre-register five falsifiable hypotheses:
+We pre-register five falsifiable hypotheses corresponding to RQ1--RQ5:
 
 \input{../shared/hypotheses}
 
-\subsection{Preprocessing conditions}
+\subsection{Chunking conditions}
 
-Each strategy is applied identically to queries and passages.
+\paragraph{Naive chunking.} Each document is split into fixed-length chunks (default 512 tokens), each chunk is independently passed through BGE-m3 \citep{chen2024bgem3}, and chunk vectors are obtained by mean-pooling token embeddings. This is the standard baseline.
 
-\input{../shared/preprocessing_strategies}
+\paragraph{Late chunking.} Each document is passed through BGE-m3 in a single forward pass up to the 8{,}192-token context limit, and chunk vectors are obtained by mean-pooling token embeddings within each chunk's span \emph{after} the encoder. Documents exceeding the context limit fall back to sliding-window late chunking with a 50\% overlap, per the reference implementation.
 
-Implementation details for each strategy --- including dictionary-guard wrapping for Strategy~3 and the false-positive verification protocol for Strategy~2 --- are reported in \secref{sec:experiments}.
+\paragraph{Sentence-shuffle ablation.} Under the Shuffled condition, sentences within each document are permuted uniformly at random with a fixed seed prior to chunking. Tokens are unchanged. This severs sequential anaphora chains without altering the bag-of-words distribution.
 
-\subsection{Retrievers}
+\subsection{Anaphora stratification}
 
-We evaluate two retriever architectures spanning the sparse--dense spectrum:
+A manually annotated subset of MIRACL-id queries (target $n = 150$) is stratified by the anaphora type present in the gold passage at the location relevant to the query:
 
-\paragraph{BM25.} Standard BM25 implementation in pyserini, with $k_1 = 0.9$ and $b = 0.4$ (standard MIRACL configuration).
+\begin{description}
+    \item[\id{-nya} clitic.] The gold passage uses an anaphoric \id{-nya} to refer to the queried entity.
+    \item[Overt pronoun.] The gold passage uses \id{ia}, \id{dia}, or \id{mereka} to refer to the queried entity.
+    \item[Zero-anaphora.] The gold passage drops the subject in a clause whose referent is the queried entity.
+    \item[No-anaphora.] Reference is fully lexical (the queried entity is named in every relevant sentence).
+\end{description}
 
-\paragraph{BGE-m3.} The dense embedding mode of BGE-m3 \citep{chen2024bgem3}, with maximum sequence length capped at 512 tokens. Indices built using FAISS HNSW (M=32, efConstruction=200).
+\subsection{Retriever and reranker}
+
+The primary first-stage retriever is BGE-m3 in dense-embedding mode. The optional second stage uses BGE-reranker-v2-m3 over the top-100 candidates. We additionally report BM25 \citep{robertson2009bm25} as a sparse reference, with $k_1 = 0.9$ and $b = 0.4$ following the MIRACL convention.
 
 \subsection{Dataset}
 
-We evaluate on the Indonesian split of MIRACL \citep{zhang2023miracl}: approximately 1.4 million Wikipedia passages and 960 development-set queries with native-annotated relevance judgments.
+We evaluate on the Indonesian split of MIRACL \citep{zhang2023miracl}: approximately 1.4 million Wikipedia passages and 960 development-set queries with native-annotated relevance judgments. For RQ3 we additionally label each passage as native or translated using MIRACL's provenance metadata.
 
 \subsection{Metrics}
 
-\textbf{Primary:} nDCG@10. \textbf{Secondary:} MRR@100, nDCG@1, Recall@10, Recall@100. nDCG@1 is reported as a more sensitive metric in case of saturation effects on dense baselines.
+\textbf{Primary:} nDCG@10. \textbf{Secondary:} MRR@100, Recall@10, Recall@100. Per-query metrics are computed under every condition.
 
 \subsection{Statistical analysis}
 
-Per-query metrics are computed for all conditions. Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across the $\binom{5}{2} = 10$ pairs per retriever ($\alpha = 0.005$ within each retriever family). Effect sizes are reported as Cliff's $\delta$. Bootstrap 95\% confidence intervals on $\Delta$nDCG@10 are computed with 10{,}000 resamples. The H5 stratification analysis uses a mixed-effects model with strategy-by-stratum interaction.
+Paired bootstrap on per-query $\Delta$nDCG@10 with 10{,}000 resamples produces 95\% confidence intervals for every method comparison. Holm correction is applied within each stratification family. Mixed-effects models with random intercepts per query are used for the size $\times$ method (H5) and shuffle $\times$ method (H1) interaction terms. The protocol follows the recommendations of \citet{dror2018hitchhiker}.
 
 \subsection{Reproducibility and pre-registration}
 
-This methodology was committed to a public Git repository before any experimental code was run, serving as a lightweight pre-registration of the design. All code, intermediate results, and analysis scripts will be released under an open licence on completion.
+This methodology was committed to a public Git repository prior to running any experimental code, serving as a lightweight pre-registration of the design. All code, intermediate indices, the annotated subset, and analysis scripts will be released under an open licence on completion.

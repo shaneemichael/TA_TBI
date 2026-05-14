@@ -1,37 +1,26 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Modern retrieval-augmented generation pipelines, including those now deployed in production for the Indonesian market, split documents into independent chunks before embedding them. Each chunk is encoded in isolation, indexed, and retrieved by similarity to the query. This default --- inherited largely from English-centric pipelines --- ignores a structural property of Indonesian that English does not share: Indonesian is a pro-drop language in which subjects are routinely null, and a single high-frequency clitic, \id{-nya}, carries definite, possessive, and anaphoric reference to entities mentioned several sentences earlier. The clitic appears in roughly 19.5\% of Indonesian suffix occurrences \cite{denistia2021morphology}. Consider three minimal examples that any naive-chunked pipeline silently degrades on:
+Indonesian, the official language of the world's fourth-most populous country, has roughly 270 million speakers but a comparatively thin natural-language-processing infrastructure. The clitic \id{-nya} appears in approximately 19.5\% of suffix occurrences in Indonesian corpus data~\cite{denistia2021morphology}, making it one of the highest-frequency morphological items in the language. It is also one of the most polysemous: a single surface form encodes at least four distinct grammatical functions: third-person singular possessive (\id{rumahnya}, `her house'), definite marker (\id{rumahnya}, `the house' given prior reference), anaphoric pronoun referring to a previously mentioned entity (\id{pidatonya}, `his/her speech'), and nominaliser (\id{datangnya}, `the arrival').
 
-\begin{itemize}
-    \item \textbf{Health.} ``\id{Pasien menderita hipertensi kronis. Dokter meresepkan amlodipin 10mg. Beliau menyarankan pasien mengonsumsinya setiap pagi.}'' The query \id{Kapan amlodipin diminum?} requires \id{-nya} in the third sentence to bind to \id{amlodipin} in the second.
-    \item \textbf{Civic.} ``\id{Bantuan Pangan Non-Tunai cair Maret 2025. Penerima harus terdaftar di DTKS. Pencairannya dilakukan via Kartu Keluarga Sejahtera.}'' Here \id{-nya} reaches three sentences back to its antecedent.
-    \item \textbf{News.} ``\id{Prabowo bertemu Xi Jinping di Beijing.}~$\emptyset$~\id{Membahas kerja sama ekonomi. Pertemuannya berlangsung dua jam.}'' Both the dropped subject in sentence~2 and the \id{-nya} in sentence~3 resolve to the entity named in sentence~1.
-\end{itemize}
+Standard Indonesian information-retrieval pipelines treat \id{-nya} as a generic suffix to be stripped by a stemmer such as the Nazief--Adriani algorithm~\cite{nazief1996indonesian} or its modern descendant Sastrawi~\cite{sastrawi}. The most authoritative empirical study on Indonesian stemming and retrieval effectiveness, by Tala~\cite{tala2003stemming}, predates BERT and dense retrieval entirely. The preprocessing defaults inherited from that pre-neural era propagate into modern retrieval systems built on multilingual dense encoders such as BGE-m3~\cite{chen2024bgem3} and multilingual E5~\cite{wang2024multilingual_e5}, where they have not been controlled-tested. Recent surveys of preprocessing on Transformer-based models report that classical preprocessing often does not help, or actively hurts, modern neural systems on English-centric benchmarks~\cite{camacho2023preprocessing}. Whether that finding generalises to a morphologically distinctive low-resource language with a high-frequency polysemous clitic is an open empirical question.
 
-In English, equivalent references would be lexicalised as overt pronouns (\textit{it}, \textit{he}, \textit{the meeting}). An English chunk embedder sees those pronouns and can bind through them. An Indonesian chunk embedder, looking at the third sentence alone, sees neither the antecedent nor a lexical pointer to it.
+A separate and equally untested concern is the \emph{quality} of the \id{-nya} stripping itself. A naive regex of the form \texttt{(\textbackslash w+?)nya\textbackslash b} --- which appears in widely-distributed Indonesian NLP tutorials --- over-strips a substantial set of high-frequency Indonesian non-clitic words such as \id{punya} `to have', \id{tanya} `to ask', \id{hanya} `only', and \id{biasanya} `usually', as well as loanwords and proper nouns including \id{Kenya}, \id{Sonya}, and the personal name \id{Tanya}. Quantifying the harm caused by this naive default is a public-good contribution distinct from the more sophisticated question of whether \emph{any} preprocessing helps modern retrievers.
 
-\subsection{The mechanism question}
+\subsection{Research questions}
 
-G\"unther et al.~\cite{gunther2024latechunking} recently introduced \emph{Late Chunking}, in which a long-context encoder processes the entire document and per-chunk vectors are obtained by pooling token embeddings within each chunk's span \emph{after} the forward pass. Reported gains on long-context retrieval are large --- up to 24\% relative on selected benchmarks --- and the method is by now widely adopted. Yet the reason it works is unclear. Wang et al.~\cite{wang2024dapr} report that 53.5\% of retrieval errors stem from missing document context, motivating the long-context approach; but the specific mechanism --- whether Late Chunking resolves anaphora in any linguistically meaningful sense or merely smooths chunk vectors towards a document-wide mean --- is unspecified. The mechanism question matters because the two stories make divergent predictions: if Late Chunking is genuinely anaphora-aware, it should help disproportionately when the query depends on an unresolved reference; if it is a regularizer over document-wide statistics, it should help uniformly regardless of reference structure.
-
-\subsection{Indonesian as a probe}
-
-Indonesian is, we argue, an unusually clean probe of this distinction. Its pro-drop typology means that anaphora is structurally salient: a sentence in isolation may contain no surface marker of its main referent at all. This makes the experiment a \emph{sentence-shuffle ablation} natural and informative. Shuffling the sentences of an Indonesian document destroys long-range anaphora chains while leaving the bag-of-words distribution of each chunk identical. If Late Chunking's gain on Indonesian survives sentence shuffle, the mechanism is not anaphora resolution. If the gain disappears, it is. To our knowledge no prior work has performed this test in any language.
-
-\subsection{Research questions and contributions}
-
-This paper addresses five pre-registered research questions on the Indonesian split of MIRACL \cite{zhang2023miracl}, comparing Naive (per-chunk) and Late (full-document) chunking under the BGE-m3 long-context encoder \cite{chen2024bgem3}:
+This paper isolates Indonesian \id{-nya} preprocessing as an experimental variable in modern retrieval and addresses four pre-registered questions on the Indonesian split of MIRACL~\cite{zhang2023miracl}:
 
 \input{../shared/research_questions}
+
+\subsection{Contributions}
 
 Our contributions are:
 
 \begin{itemize}
-    \item The first sentence-shuffle ablation of Late Chunking in any language, isolating sequential anaphora resolution from bag-of-document regularization (RQ1).
-    \item An anaphora-stratified evaluation that decomposes Late Chunking's gain by reference type --- \id{-nya} clitic, overt pronoun, zero-anaphora, none --- on a manually annotated subset of MIRACL-id (RQ2).
-    \item A native-vs-translated provenance contrast that uses translationese as a natural ablation of pro-drop, since translated Indonesian over-realizes pronouns (RQ3).
-    \item A pipeline-level test of whether Late Chunking's first-stage gains survive cross-encoder reranking (RQ4), and a chunk-size interaction analysis grounded in Indonesian morphology (RQ5).
+    \item The first controlled study isolating Indonesian \id{-nya} preprocessing as an experimental variable in a modern dense-retrieval setting, on both sparse (BM25) and dense (BGE-m3) retrievers.
+    \item Empirical quantification of the harm caused by the naive regex \id{-nya} stripping pattern that is widely distributed in practitioner code despite over-stripping common non-clitic words --- a harm-baseline that, to our knowledge, has not been previously measured.
+    \item A sensitivity-stratified analysis identifying the query population on which preprocessing decisions matter most, providing actionable guidance for system designers building Indonesian RAG and search products.
 \end{itemize}
 
-The remainder of the paper is organised as follows. \secref{sec:related} situates the work against three adjacent literatures: long-context dense retrieval, Indonesian morphology and anaphora, and document-aware retrieval. \secref{sec:method} specifies the experimental design, the chunking conditions, and the statistical analysis plan. \secref{sec:experiments} describes implementation details and the annotation protocol. \secref{sec:results} presents the results and \secref{sec:discussion} interprets them. \secref{sec:conclusion} concludes.
+The remainder of the paper is organised as follows. \secref{sec:related} situates the work in three adjacent literatures: Indonesian morphology and clitic handling, Indonesian retrieval and stemming, and preprocessing for transformer-based models. \secref{sec:method} specifies the four preprocessing conditions and the experimental design. \secref{sec:experiments} describes implementation details, and \secref{sec:results} presents results. \secref{sec:discussion} interprets the findings and discusses limitations. \secref{sec:conclusion} concludes.

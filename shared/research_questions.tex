@@ -1,20 +1,17 @@
 % =============================================================================
 % shared/research_questions.tex
-% Single responsibility: canonical statement of RQ1--RQ5.
+% Single responsibility: canonical statement of the research questions.
 % Change this file when an RQ is rephrased or rescoped.
 % \input from any document that states the research questions.
 % =============================================================================
 
-\noindent\textbf{RQ1 (headline).} Does Late Chunking actually resolve cross-sentence anaphora on Indonesian retrieval, or does its gain over Naive chunking come from a bag-of-document smoothing effect that is invariant to sequential order?
+\noindent\textbf{RQ1 (primary).} Among four preprocessing strategies for the Indonesian polysemous clitic \id{-nya} --- Keep, Naive regex strip, dictionary-aware Sastrawi clitic strip, and Sentinel masking --- which yields the highest retrieval effectiveness on MIRACL-id?
 
 \smallskip
-\noindent\textbf{RQ2 (linguistic stratification).} Are Late Chunking's gains heterogeneous by Indonesian anaphora type --- specifically across the \id{-nya} clitic, overt pronouns (\id{ia}, \id{dia}), zero-anaphora, and no-anaphora strata?
+\noindent\textbf{RQ2 (architecture interaction).} Does the optimal preprocessing strategy depend on retriever architecture, specifically between sparse BM25 and dense BGE-m3?
 
 \smallskip
-\noindent\textbf{RQ3 (provenance contrast).} Does the benefit of Late Chunking transfer across native and translated portions of id-Wiki, given that translationese is known to over-realize pronouns that the encoder can bind through?
+\noindent\textbf{RQ3 (harm quantification).} How large is the retrieval-effectiveness penalty incurred by the naive regex \id{-nya} pattern that is widely distributed in practitioner code despite over-stripping common non-clitic words?
 
 \smallskip
-\noindent\textbf{RQ4 (pipeline robustness).} Does the Late-vs-Naive gain at first-stage retrieval survive cross-encoder reranking with BGE-reranker-v2-m3?
-
-\smallskip
-\noindent\textbf{RQ5 (chunk-size interaction).} Is the chunk-size $\times$ method interaction shaped by Indonesian morphology --- specifically, is Late's relative gain larger at 256 tokens than at 512, where shorter chunks have a higher anaphora-cut rate?
+\noindent\textbf{RQ4 (sensitivity stratification).} Are the differences between strategies larger on queries whose gold passages contain high concentrations of anaphoric \id{-nya} than on queries with little or no \id{-nya} content?

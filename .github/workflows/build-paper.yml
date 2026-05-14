@@ -45,10 +45,31 @@ jobs:
           path: paper.pdf
           if-no-files-found: error
 
-      - name: Attach PDF to release
+      - name: Attach PDF to versioned release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          files: |
+            paper.pdf
+            paper-*.pdf
+          fail_on_unmatched_files: true
+
+      - name: Reset rolling "latest" release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Publish rolling "latest" release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Latest build"
+          body: |
+            Auto-built from commit ${{ github.sha }}.
+            Direct PDF: https://github.com/${{ github.repository }}/releases/latest/download/paper.pdf
+          prerelease: true
           files: |
             paper.pdf
             paper-*.pdf

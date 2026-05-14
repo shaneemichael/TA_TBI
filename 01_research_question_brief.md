@@ -2,7 +2,7 @@
 
 **Project:** Indonesian *-nya* preprocessing for information retrieval
 **Researcher:** Maskrio
-**Date:** 2026-05-12
+**Date:** 2026-05-12 (revised 2026-05-14: Strategy 5 changed from manual oracle annotation to rule-based automated resolution)
 **Stage:** Phase 1 — Scoping (deep-research pipeline)
 
 ---
@@ -23,21 +23,21 @@ Despite this complexity, standard Indonesian information-retrieval pipelines tre
 
 ### RQ-A (Primary)
 
-Among four preprocessing strategies for Indonesian *-nya* — keep, strip, sentinel-replace, and oracle anaphora resolution on a held-out subset — which yields the best retrieval effectiveness on MIRACL-id, and does the optimal strategy depend on retriever architecture (BM25 vs. BGE-m3)?
+Among five preprocessing strategies for Indonesian *-nya* — Keep, Naive regex strip, Sastrawi clitic strip with dictionary guard, Sentinel masking, and rule-based anaphora resolution — which yields the best retrieval effectiveness on MIRACL-id, and does the optimal strategy depend on retriever architecture (BM25 vs. BGE-m3)?
 
 **Debatable tension:** Conventional Indonesian IR strips *-nya* by default. Two competing predictions:
 - **H1a (stripping helps):** Removing *-nya* improves lexical matching by collapsing morphological variants. Should benefit BM25.
 - **H1b (preservation helps for dense):** Dense encoders may use morphological signal to disambiguate context. Stripping destroys signal for BGE-m3.
 
-### RQ-B (Embedded as Strategy 4)
+### RQ-B (Embedded as Strategy 5)
 
-Does anaphora-aware document expansion — replacing anaphoric *-nya* with its resolved antecedent — provide an upper bound on attainable improvement from anaphora-aware preprocessing for Indonesian factoid retrieval?
+Does fully-automated rule-based anaphora resolution — surface-context classification of *-nya* function followed by antecedent substitution for anaphoric occurrences — yield a measurable retrieval-effectiveness gain over the best surface-level preprocessing strategy for Indonesian factoid retrieval?
 
 ## FINER Scoring
 
 | Criterion | Score | Rationale |
 |-----------|-------|-----------|
-| **F**easible | High | 8 main conditions × 1 benchmark; 90 GPU-hr Kaggle budget sufficient. 3-week scope realistic. |
+| **F**easible | High | 10 main conditions × 1 benchmark; 90 GPU-hr Kaggle budget sufficient. Rule-based resolver runs in CPU minutes. 3-week scope realistic. |
 | **I**nteresting | High | Challenges a default IR preprocessing assumption; both directions of result are publishable. |
 | **N**ovel | High | No published study isolates *-nya* as IR dependent variable. Closest prior art is Malay clitic classification (no IR evaluation). |
 | **E**thical | Clean | Public benchmark (MIRACL CC-BY-SA); no human subjects; standard AI disclosure required. |
@@ -50,7 +50,7 @@ Does anaphora-aware document expansion — replacing anaphoric *-nya* with its r
 - BM25 sparse retrieval (pyserini)
 - BGE-m3 dense retrieval (dense-mode only)
 - MIRACL-id Indonesian split (dev set, 960 queries; corpus ~1.4M passages)
-- Oracle anaphora resolution on a 100–150 query subset (manually annotated)
+- Rule-based anaphora resolution on the full 1.4M-passage corpus (CPU-only pipeline; no commercial API; no manual annotation)
 - nDCG@10, MRR@100 as primary metrics; Recall@10/100 diagnostic
 
 **Out of scope:**
@@ -58,22 +58,24 @@ Does anaphora-aware document expansion — replacing anaphoric *-nya* with its r
 - Other Indonesian NLP tasks (NER, sentiment, MT)
 - Other Austronesian languages (Malay results may be discussed)
 - Cross-lingual retrieval
-- Full-system anaphora resolution (only oracle ceiling)
+- LLM-based or neural anaphora resolution (~$3,500 at 1.4M-passage scale — cost-prohibitive)
+- Manual oracle annotation (out of S1-thesis scope)
 
 ## Sub-Questions
 
 1. Does the optimal preprocessing strategy differ between sparse and dense retrievers?
 2. What proportion of MIRACL-id queries contain at least one *-nya* whose treatment changes ranking?
-3. How large is the gap between the best implementable strategy and the oracle ceiling?
+3. How large is the gain delivered by automated rule-based anaphora resolution over the best surface-level strategy?
 
 ## Literature Context
 
 The gap sits at the intersection of three literatures that don't currently talk to each other:
 
-- **Indonesian morphology**: well-described (Denistia & Baayen 2021, IndoMorph 2025, MorphInd) but does not measure IR effects.
+- **Indonesian morphology**: well-described (Denistia & Baayen 2021, IndoMorph 2025, MorphInd, Larasati 2012) but does not measure IR effects.
 - **Indonesian stemming for IR**: well-evaluated overall (Asian & Williams; Nazief-Adriani; Sastrawi at 95.2%) but does not isolate *-nya*.
 - **Indonesian retrieval and QA**: emerging (IndoBERT, IndoNLU AACL 2020; MIRACL TACL 2023; Mr. TyDi MRL 2021) but does not control for clitic preprocessing.
-- **Anaphora-for-IR (general)**: classical work (Mitkov; QA-anaphora studies) shows resolution helps; not applied to Indonesian.
+- **Anaphora-for-IR (general)**: classical work (Mitkov 2002) and modern RAG work (Jang et al. ACL SRW 2025) shows resolution helps for English; not applied to Indonesian.
+- **Indonesian coreference systems**: Auliarachman & Purwarianti 2020 (CNN mention-pair), Saputri et al. 2021 (multi-pass sieve) — code availability uncertain; neither connected to retrieval.
 - **Closest prior art**: Malay clitic *-nya* classification (2021) — accuracy benchmark only, no IR evaluation.
 
 ## Importance
@@ -86,9 +88,9 @@ The gap sits at the intersection of three literatures that don't currently talk 
 ## Decision: Locked Direction
 
 - **Primary RQ:** RQ-A
-- **Secondary RQ:** RQ-B (operationalized as Strategy 4 oracle condition within RQ-A's factorial)
+- **Secondary RQ:** RQ-B (operationalized as Strategy 5 rule-based resolution within RQ-A's factorial)
 - **Benchmark:** MIRACL-id only (Mr. TyDi-id replication only if compute permits at end of week 3)
-- **Compute:** 30 GPU-hr/week × 3 weeks Kaggle = 90 GPU-hr total
+- **Compute:** 30 GPU-hr/week × 3 weeks Kaggle = 90 GPU-hr total. Strategy 5 itself runs CPU-only.
 
 ---
 

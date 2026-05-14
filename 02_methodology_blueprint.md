@@ -2,10 +2,10 @@
 
 **Project:** Indonesian *-nya* preprocessing for information retrieval
 **Researcher:** Maskrio
-**Date:** 2026-05-12 (revised after Devil's Advocate Checkpoint 1)
+**Date:** 2026-05-12 (revised 2026-05-14 — see revision history at end)
 **Stage:** Phase 1 — Scoping (deep-research pipeline, `research_architect_agent` output)
 
-> **Revision note (v2):** After Devil's Advocate Checkpoint 1 surfaced the over-stripping problem in the original Strategy 2, the design has been expanded from 4 to 5 preprocessing conditions. Naive regex stripping is now retained as an explicit "harmful baseline" (Strategy 2) to demonstrate the problem; Sastrawi's dictionary-aware *-nya* clitic rule is added as Strategy 3 ("linguistically informed strip"). This sharpens the paper's narrative and adds two additional hypotheses (H2 directional, H5 stratification).
+> **Revision note (v3, 2026-05-14):** Strategy 5 reconfigured from manual oracle annotation on a 100–150-query subset to fully-automated rule-based anaphora resolution applied to the entire 1.4M-passage MIRACL-id corpus. Rationale: LLM-based resolution is cost-prohibitive at corpus scale (~$3,500 + 24 GPU-h for GPT-4o-class API); manual oracle annotation is out of scope for an S1 thesis. The rule-based pipeline is free, deterministic, reproducible, and resolves on the full corpus rather than a subset — eliminating the "Strategy 5 uses a different population than Strategies 1-4" methodological awkwardness of the original design. Hypothesis H4 reformulated accordingly: rule-based resolution vs. per-retriever-best non-resolving strategy, paired Wilcoxon on the full 960 dev queries.
 
 ---
 
@@ -17,7 +17,7 @@ Positivist quantitative experimental research. Controlled within-subjects factor
 
 Stated such that each is falsifiable.
 
-**H1 (main effect of preprocessing):** At least one of the five preprocessing strategies (Keep, Naive strip, Sastrawi clitic, Sentinel, Oracle) yields a significantly different nDCG@10 distribution than the others, separately for each retriever architecture.
+**H1 (main effect of preprocessing):** At least one of the five preprocessing strategies (Keep, Naive strip, Sastrawi clitic, Sentinel, Rule-resolved) yields a significantly different nDCG@10 distribution than the others, separately for each retriever architecture.
 - Tested via: Friedman test on per-query nDCG@10
 - Reject H0 at α = 0.05
 
@@ -26,12 +26,12 @@ Stated such that each is falsifiable.
 - Pre-committed prediction: ΔnDCG@10 < 0 with non-trivial effect size on BM25 (lexical matching directly hurt); smaller but still negative on BGE-m3 (encoder partially robust to mangled tokens)
 - Reject H0 at α = 0.05
 
-**H3 (architecture × preprocessing interaction):** The optimal preprocessing strategy among Keep / Sastrawi clitic / Sentinel differs between BM25 and BGE-m3.
+**H3 (architecture × preprocessing interaction):** The optimal preprocessing strategy among Keep / Sastrawi clitic / Sentinel / Rule-resolved differs between BM25 and BGE-m3.
 - Tested via: comparison of best-performing strategy under each retriever, with bootstrap confidence intervals on the gain difference
 - Pre-committed prediction: BM25 benefits from Sastrawi clitic stripping (recall ↑ from morphological collapsing); BGE-m3 either prefers Keep (encoder uses morphological signal) or is statistically indistinguishable across the three (encoder robust)
 
-**H4 (oracle ceiling):** On the oracle subset, Strategy 5 (Oracle) significantly outperforms the best of Strategies 1–4 for both retrievers, establishing an upper bound on attainable improvement from anaphora-aware preprocessing.
-- Tested via: paired Wilcoxon signed-rank, Strategy 5 vs. argmax of Strategies 1–4 per retriever
+**H4 (rule-based resolution gain):** Rule-resolved (Strategy 5) yields significantly higher nDCG@10 than the per-retriever-best of Keep, Sastrawi clitic, and Sentinel.
+- Tested via: paired Wilcoxon signed-rank, Strategy 5 vs. argmax(Strategies 1, 3, 4) per retriever, on the full 960 dev queries
 - Reject H0 at Bonferroni-corrected α = 0.025
 
 **H5 (sensitivity stratification):** Effects of preprocessing strategy on retrieval effectiveness are larger on high-*-nya*-sensitivity queries than on low-sensitivity queries.
@@ -46,19 +46,19 @@ Within-subjects factorial: each query is evaluated under all preprocessing × re
 
 | Factor | Levels |
 |---|---|
-| Preprocessing strategy | 5: Keep / Naive strip / Sastrawi clitic / Sentinel / Oracle |
+| Preprocessing strategy | 5: Keep / Naive strip / Sastrawi clitic / Sentinel / Rule-resolved |
 | Retriever architecture | 2: BM25 / BGE-m3 (dense-mode) |
 
 Optional 3rd retriever (multilingual-e5-base) added in Week 3 if compute permits.
 
 ### Conditions Matrix
 
-| | Keep | Naive strip | Sastrawi clitic | Sentinel | Oracle |
+| | Keep | Naive strip | Sastrawi clitic | Sentinel | Rule-resolved |
 |---|---|---|---|---|---|
-| **BM25** | 960 dev | 960 | 960 | 960 | 100–150 subset |
-| **BGE-m3** | 960 dev | 960 | 960 | 960 | 100–150 subset |
+| **BM25** | 960 dev | 960 | 960 | 960 | 960 |
+| **BGE-m3** | 960 dev | 960 | 960 | 960 | 960 |
 
-8 full-set indices + 2 subset evaluations = 10 conditions. Estimated compute: ~50 GPU-hr (within 90 GPU-hr Kaggle budget).
+10 full-set indices = 10 conditions. Estimated compute: ~60 GPU-hr (within 90 GPU-hr Kaggle budget). Strategy 5 itself runs CPU-only.
 
 ### Dependent Variables
 
@@ -95,12 +95,14 @@ Optional 3rd retriever (multilingual-e5-base) added in Week 3 if compute permits
 - FAISS-CPU for dense index (HNSW M=32, efConstruction=200)
 - pandas, numpy, scipy.stats for analysis
 - statsmodels for mixed-effects models and multiple-comparisons correction
+- For Strategy 5: an Indonesian POS tagger (e.g. Stanza or IndoBERT-POS) and a list of Indonesian root words / proper nouns for antecedent selection
 
 ### Compute
 
 - Kaggle T4×2 or P100, 30 GPU-hr/week × 3 weeks = 90 GPU-hr total
-- Estimated burn (single dense retriever path, 5 strategies): ~50 GPU-hr
-- Slack: ~40 GPU-hr for second retriever, debugging, reruns
+- Estimated burn (single dense retriever path, 5 strategies): ~60 GPU-hr
+- Slack: ~30 GPU-hr for second retriever, debugging, reruns
+- Strategy 5 resolver runs CPU-only; estimated 10–30 minutes for the full 1.4M-passage rewrite
 
 ## 5. Preprocessing Strategy Specifications
 
@@ -129,37 +131,26 @@ The "what NOT to do" condition. Naive regex over-strips high-frequency Indonesia
 
 This condition is explicitly included to **demonstrate the problem** and serves H2's directional prediction. The expected result is nDCG@10 ↓ relative to Keep, with the effect more pronounced on BM25.
 
-Why include a condition we expect to fail? Two reasons. First, naive *-nya* stripping appears in the wild (StackOverflow answers, hobbyist tutorials, hastily-written notebooks). Quantifying its harm is a public-good contribution — practitioners need a citeable result. Second, the contrast Naive vs. Sastrawi-clitic isolates the value of linguistically-informed disambiguation independently of the preserve-vs-strip decision.
-
 ### Strategy 3 — Sastrawi clitic rule (linguistically informed)
 
-Use Sastrawi's *-nya* clitic-removal stage **in isolation**, not full Sastrawi stemming.
+Use Sastrawi's *-nya* clitic-removal stage **in isolation**, not full Sastrawi stemming, wrapped with an explicit Indonesian-dictionary guard:
 
 ```python
-# Sastrawi's rule pipeline can be invoked stage-by-stage
 from Sastrawi.Stemmer.Filter.RemovePossessivePronoun import RemovePossessivePronoun
 
 remove_possessive = RemovePossessivePronoun()
 
-def preprocess_sastrawi_clitic(text: str) -> str:
+def preprocess_sastrawi_clitic(text: str, root_dict: set[str]) -> str:
     tokens = text.split()
     out = []
     for tok in tokens:
-        # RemovePossessivePronoun strips -ku/-mu/-nya only; dictionary check
-        # in the parent stemmer's full pipeline normally protects non-clitics,
-        # but the isolated rule does not — so we add a dictionary guard:
         stripped = remove_possessive.filter(tok)
-        out.append(stripped)
+        # dictionary guard: commit the strip only if the result is a known root
+        out.append(stripped if stripped in root_dict else tok)
     return ' '.join(out)
 ```
 
-**CRITICAL Day 1 verification:** Sastrawi's `RemovePossessivePronoun` filter, called in isolation, may *not* perform dictionary disambiguation (the dictionary check is normally at the end of the full pipeline). If that's the case, we have two options:
-- (a) Wrap the call with our own dictionary check using Sastrawi's word list (`StemmerFactory().get_words()` or equivalent)
-- (b) Use the full Sastrawi pipeline and accept that the strip-vs-keep decision happens within Sastrawi's larger logic — but document this confound
-
-Recommend (a): isolated clitic stripping with explicit dictionary guard. Cleanest construct validity.
-
-This is the "what people *should* do if they preprocess at all" condition — corresponds to standard practice in production Indonesian NLP pipelines.
+**CRITICAL Day 1 verification:** confirm that the dictionary guard prevents over-strips on the canonical false-positive set (*punya, tanya, hanya, biasanya, Kenya, Sonya, Tanya*) before running on the full corpus.
 
 ### Strategy 4 — Sentinel
 
@@ -174,19 +165,26 @@ Replaces *-nya* with a spaced sentinel. Diagnostic condition: removes lexical ma
 
 **Alternative considered:** apply Sastrawi-style disambiguation, then sentinel only on confirmed clitic *-nya*. Decision deferred to Day 1 — start with the simpler version, upgrade if false-positive rate is unacceptable.
 
-### Strategy 5 — Oracle Anaphora Resolution (subset only)
+### Strategy 5 — Rule-based anaphora resolution (full corpus)
 
-Manual annotation of 100–150 query-passage pairs where the target passage contains anaphoric *-nya* whose referent is the queried entity. Replace anaphoric *-nya* with the resolved noun phrase.
+Three-stage pipeline applied to all 1.4M MIRACL-id passages:
 
-**Annotation protocol:**
-1. Sample 200 queries from dev set
-2. For each, retrieve top-10 BM25 baseline (Strategy 1)
-3. Annotator reads gold-relevant passages; if any *-nya* occurrence anaphorically refers to the queried entity, replace it with the antecedent NP
-4. Skip queries with no anaphoric *-nya* in gold passages → expected yield: 100–150 usable pairs
-5. Annotation guideline (1-page document) drafted before annotation begins
-6. **Inter-annotator agreement:** 20% double-annotated by a second Indonesian-speaking annotator; report Cohen's κ. Target κ ≥ 0.7.
+**Stage A — Detection.** Use the same dictionary-guarded matcher as Strategy 3 to identify clitic *-nya* occurrences (excluding false-positive non-clitic words).
 
-**Critical caveat:** Oracle is upper bound, not realistic upper bound. Real anaphora resolution accuracy is ~60–90% (per Malay clitic study); actual deployable improvement is bounded above by oracle × resolution accuracy.
+**Stage B — Functional-class classification.** For each detected clitic, classify the function (possessive / definite / anaphoric / nominaliser) using surface-context heuristics:
+- POS of the host word (verb host → likely nominaliser);
+- Presence of a salient prior noun phrase in the preceding 1–2 sentences (no antecedent → likely possessive);
+- Definite-marker discourse cues (`sebuah`, `tersebut`, etc.);
+- Default: possessive.
+
+**Stage C — Antecedent substitution.** For occurrences classified as anaphoric, substitute the clitic with the antecedent string. Antecedent = most recent salient noun phrase in the prior 1–2 sentences. Salience order: proper noun > definite NP > common noun.
+
+Worked example:
+> *Sukarno dilahirkan di Surabaya. Pidatonya terkenal.* → *Sukarno dilahirkan di Surabaya. Pidato Sukarno terkenal.*
+
+Implementation: pure Python with regex, dictionary lookup, and POS tagging (Stanza or IndoBERT-POS). No neural inference per document, no API calls. Estimated wall-clock for full corpus: 10–30 minutes single-core CPU.
+
+**Honest framing:** this is best-effort *automated* resolution, not an *oracle ceiling*. The resolver's classifier accuracy and antecedent-selection accuracy are bounded; we report a hand-annotated sanity check on a small held-out sample so readers can interpret retrieval gains relative to known resolver error.
 
 ## 6. Procedures
 
@@ -198,8 +196,8 @@ Raw MIRACL-id corpus + queries
 Preprocessing (5 strategies, applied to both Q and D)
     ↓
 Indexing
-    ├── BM25: pyserini index_collection (CPU, ~30 min each × 4 = ~2 hr)
-    └── BGE-m3: encode → FAISS HNSW (~6 hr/index on T4 × 4 = ~24 hr)
+    ├── BM25: pyserini index_collection (CPU, ~30 min each × 5 = ~2.5 hr)
+    └── BGE-m3: encode → FAISS HNSW (~6 hr/index on T4 × 5 = ~30 hr)
     ↓
 Query encoding (BM25 implicit; BGE-m3 explicit, ~1 hr total)
     ↓
@@ -245,19 +243,20 @@ Pre-committed analyses (run regardless of results):
 3. **Effect size:** Cliff's δ for each pairwise comparison (small/medium/large thresholds: |δ| ≥ 0.147 / 0.33 / 0.474 per Romano et al.).
 4. **Bootstrap CI:** 10,000 resamples on per-query ΔnDCG@10; report 95% CI for each pairwise comparison.
 5. **H2 directional test:** one-tailed Wilcoxon, Naive vs. Keep, per retriever — pre-committed direction (ΔnDCG@10 < 0).
-6. **H5 stratification:** mixed-effects model `ndcg ~ strategy * sensitivity_bin + (1|query)` with random intercept per query. If model convergence issues, fall back to stratified Friedman tests with effect-size comparison across strata.
+6. **H4 rule-based-gain test:** paired Wilcoxon, Rule-resolved vs. argmax(Keep, Sastrawi clitic, Sentinel) per retriever, Bonferroni-corrected α = 0.025.
+7. **H5 stratification:** mixed-effects model `ndcg ~ strategy * sensitivity_bin + (1|query)` with random intercept per query. If model convergence issues, fall back to stratified Friedman tests with effect-size comparison across strata.
 
 ### Secondary Analyses
 
 - Same battery on MRR@100, nDCG@1, Recall@10, Recall@100.
-- Strategy 5 vs. argmax(Strategies 1–4) on the oracle subset (paired Wilcoxon).
 - Architecture interaction: difference-in-differences on (best - baseline) gain per retriever.
+- Strategy 5 resolver accuracy on a hand-annotated ~100-passage sample: classifier 4-way accuracy and antecedent-selection binary accuracy.
 
 ### Exploratory Analyses (clearly labeled)
 
 - Per-query rank changes across all 5 strategies: how many queries flip top-1 between Keep and each of the others?
 - Correlation between query *-nya* count and rank change.
-- Failure analysis: 20 hand-picked queries where Sastrawi clitic hurts most — error-pattern taxonomy.
+- Failure analysis: 20 hand-picked queries where Sastrawi clitic and Rule-resolved disagree most — error-pattern taxonomy.
 - BPE fragmentation diagnostic: report passages-per-token-count per strategy.
 - Optional: probing analysis on BGE-m3 contextual embeddings of *-nya* tokens (RQ-C territory; defer to follow-up).
 
@@ -267,7 +266,7 @@ Pre-committed analyses (run regardless of results):
 |--------|------|------------|
 | Sastrawi clitic rule in isolation may not disambiguate as expected | Construct | Day 1 verification; add explicit dictionary guard if needed |
 | Naive strip is a strawman | Construct | Document its prevalence in the wild; framed as "harmful baseline that practitioners actually use" |
-| Oracle annotator bias | Internal | Pre-written guideline; 20% double-annotated; κ ≥ 0.7 target |
+| Strategy 5 resolver error rate inflates or deflates measured gain | Construct | Hand-annotated 100-passage sanity check; report classifier and antecedent accuracy alongside retrieval gain so readers can calibrate |
 | BPE fragmentation interacts with strategies in unmeasured ways | Construct | Report tokens-per-passage diagnostic per strategy |
 | Ceiling effect on BGE-m3 dense retrieval (high baseline nDCG@10) | Statistical conclusion | Add nDCG@1 as a more sensitive metric; analyze low-baseline-quartile separately |
 | Sentinel inherits Naive's false-positive problem | Construct | Acknowledge openly; consider Sastrawi-then-sentinel upgrade if false-positive rate is severe |
@@ -286,17 +285,17 @@ Pre-committed analyses (run regardless of results):
 
 **Pre-registration content:**
 - Hypotheses H1–H5 verbatim from §2
-- Sample: MIRACL-id dev set (960 queries); 100–150 oracle subset
+- Sample: MIRACL-id dev set (960 queries) under all 5 strategies × both retrievers
 - Variables and operationalizations (this document, §3 and §5)
 - Primary analysis: Friedman + Wilcoxon-Bonferroni + mixed-effects (this document, §7)
-- Stopping rule: all 8 main conditions completed; oracle subset closes at 150 queries or when annotator has spent 12 hr, whichever first
+- Stopping rule: all 10 main conditions completed
 - Data version: MIRACL-id v1.0
 - Code commit: GitHub link to be added at registration time
 
 ## 10. Ethics Statement
 
 - **Data:** public benchmark, no PII. Verify license terms on MIRACL-id before redistribution.
-- **Annotation:** if outsourced, follow institutional IRB-equivalent guidelines. Self-annotation requires no IRB.
+- **Annotation:** the only human-annotation step is the 100-passage resolver-accuracy sanity check (self-annotation, no IRB required).
 - **AI disclosure:** required by ACL/EMNLP/SIGIR per current policy. State explicitly: literature scan and code drafts assisted by Claude (Sonnet/Opus). All experimental design, hypothesis formulation, and analysis decisions made by the human researcher.
 - **Compute carbon estimate:** report as supplementary disclosure (~kgCO₂eq from Kaggle GPU hours).
 - **Reproducibility statement:** all code and intermediate artifacts released on GitHub under MIT or Apache 2.0.
@@ -318,17 +317,17 @@ Failure modes to plan framing for *now*, before running anything:
 - Counterintuitive — encoder benefits from morphological collapsing.
 - Pivot to: identify which queries benefit; characterise the gain; argue for "linguistically-informed preprocessing is still useful even for modern dense retrievers."
 
-**Mode 4: Oracle ≪ Keep.**
-- Most informative result: anaphoric *-nya* rarely sits on the relevance-bottleneck path.
-- Reframes the importance argument: even perfect anaphora resolution wouldn't help retrieval much.
+**Mode 4: Rule-resolved ≪ Keep.**
+- Most informative result: rule-based anaphora resolution introduces more noise than signal at retrieval scale.
+- Reframes the importance argument: the bottleneck for retrieval improvement is not anaphora resolution. Future neural/LLM-based resolvers would face the same headwind.
 - Possible explanation: dense encoders already track entity context implicitly across the passage.
 
-**Mode 5: No queries in MIRACL-id contain anaphoric *-nya* tied to the answer entity.**
-- Discovered Day 8 during annotation.
-- Mitigation: pivot Strategy 5 to broader operationalization (resolve any anaphoric *-nya* in gold passage, not only those tied to query entity).
-- Contingency: if true gap, reduce subset size to 50 and increase qualitative analysis.
+**Mode 5: Strategy 5 produces almost no rewrites because the heuristic classifier under-detects anaphoric *-nya*.**
+- Discovered Day 1–2 during pilot.
+- Mitigation: tune classifier thresholds against the 100-passage sanity-check sample; relax detection rules until a non-trivial fraction (target 15–25% of *-nya* occurrences) are classified as anaphoric.
+- Contingency: if even a relaxed rule-based classifier produces a tiny rewrite count, report the bound as a limitation and reframe Strategy 5 as "lower-bound estimate of automated-resolution gain."
 
-**Mode 6 (new in v2): Sastrawi's isolated `RemovePossessivePronoun` does not perform dictionary disambiguation.**
+**Mode 6: Sastrawi's isolated `RemovePossessivePronoun` does not perform dictionary disambiguation.**
 - Discovered Day 1.
 - Mitigation: implement explicit dictionary guard wrapping the call; document.
 - Contingency: if dictionary-based protection is infeasible, fall back to full Sastrawi pipeline as Strategy 3 and document the confound.
@@ -339,20 +338,22 @@ Lock these before Day 1:
 
 1. ~~Custom *-nya*-only stripper vs. Sastrawi-default as Strategy 2.~~ **RESOLVED:** 5-condition design with both Naive (Strategy 2) and Sastrawi clitic (Strategy 3).
 2. **Pre-register on OSF or via timestamped GitHub commit.** Recommendation: GitHub commit for the 3-week scope (lightweight equivalent).
-3. **Annotator for oracle subset.** Single annotator (you) vs. recruit a second for κ. Recommendation: recruit a second for at least the 20% double-annotation slice. Native Indonesian speaker, 2 hr time commitment.
+3. ~~Annotator for oracle subset.~~ **RESOLVED (v3):** Strategy 5 is now rule-based on the full corpus; no annotator needed. A 100-passage sanity-check sample is self-annotated.
 4. **Optional second retriever (multilingual-e5-base).** Recommendation: yes if Week 1 + 2 stay on schedule.
 5. **GitHub repo public from Day 1 vs. on submission.** Recommendation: public from Day 1 with a "work in progress" notice; reinforces reproducibility intent and serves as the lightweight pre-registration timestamp.
 6. **Sentinel implementation: keep simple regex form, or upgrade to Sastrawi-disambiguated sentinel.** Recommendation: ship simple form for now, decide based on Day 1 false-positive rate.
+7. **Strategy 5 POS tagger choice (Stanza vs IndoBERT-POS).** Recommendation: Stanza for stable, well-documented pipeline; IndoBERT-POS only if accuracy on the sanity sample is insufficient.
 
 ## 13. Deliverables
 
 By end of Week 3:
 - Reproducible code repository (GitHub)
-- Results CSV with all per-query metrics across all conditions
+- Results CSV with all per-query metrics across all 10 conditions
 - Pre-registered analysis report (HTML or PDF)
 - Methodology pre-registration on OSF or timestamped GitHub commit (Day 1 of Week 1)
 - Draft paper (5–8 pages, suitable for SIGIR/EMNLP short or workshop)
 - ***-nya* sensitivity scoring script** (reusable tool — bonus contribution)
+- **Rule-based *-nya* resolver as a standalone Python package** (reusable tool — bonus contribution)
 - This blueprint, updated with any in-flight protocol changes (audit trail)
 
 ---
@@ -361,7 +362,8 @@ By end of Week 3:
 
 - **v1 (2026-05-12 morning):** Initial draft. 4 preprocessing strategies (Keep, Strip-nya custom regex, Sentinel, Oracle).
 - **v2 (2026-05-12 afternoon):** Expanded to 5 strategies after Devil's Advocate Checkpoint 1 surfaced over-stripping problem in original Strategy 2. Naive strip retained as harmful baseline (Strategy 2); Sastrawi clitic rule added as linguistically-informed condition (Strategy 3). Hypotheses updated to include H2 (directional naive-harm) and H5 (sensitivity stratification). Statistical plan updated for 5-strategy Bonferroni count (α/10 = 0.005). New §6 sub-section on *-nya* sensitivity scoring as substitute for query crafting.
+- **v3 (2026-05-14):** Strategy 5 reconfigured from manual oracle annotation on a 100–150-query subset to fully-automated rule-based anaphora resolution on the full 1.4M-passage corpus. Hypothesis H4 reformulated as "rule-based vs per-retriever-best non-resolving strategy" on the full dev set. Conditions matrix updated (Strategy 5 now 960 dev under both retrievers, not subset). Annotator-recruitment open decision retired; sanity-check sample (100 passages, self-annotated) substituted. New deliverable: rule-based resolver as standalone Python package.
 
 ---
 
-*Next stage: Phase 2 — Investigation. Begin with Day 1 verification tasks (Sastrawi behavior; BGE-m3 baseline ceiling check).*
+*Next stage: Phase 2 — Investigation. Begin with Day 1 verification tasks (Sastrawi behavior; BGE-m3 baseline ceiling check; rule-based resolver pilot on 100 passages).*

@@ -9,21 +9,21 @@
 
 \subsection{Implications for production Indonesian retrieval systems}
 
-\todo{Concrete recommendation: should practitioners preprocess -nya, and if so, how? Tie to the architecture-interaction result.}
+\todo{Concrete recommendation: should practitioners preprocess \id{-nya}, and if so, how? Tie to the architecture-interaction result.}
 
-\subsection{The oracle ceiling and what it implies for future anaphora-resolution research}
+\subsection{Rule-based anaphora resolution and the ceiling for future research}
 
-\todo{If oracle gain is large: future research worth pursuing. If small: not the bottleneck.}
+\todo{If Rule-resolved gain is large: an automated -nya resolver is a worthwhile engineering investment for Indonesian retrieval. If small: surface-level handling (Strategies 3 or 4) is sufficient and the bottleneck for retrieval improvement lies elsewhere.}
 
 \subsection{Limitations}
 
-The oracle condition measures perfect \emph{and selective} resolution: we modify only gold-relevant passages, simulating an upper bound where a hypothetical resolver also knows which passages are worth resolving. A deployable system would have to resolve anaphoras corpus-wide, introducing both true positives and false positives. The realistic deployable gain is therefore bounded above by oracle gain $\times$ resolution accuracy $\times$ a selectivity factor.
+Strategy 5 (Rule-resolved) is a best-effort automated resolver; it inherits the error rate of its heuristic classifier and antecedent-selection rules into the retrieval result. A practical upper bound on retrieval gain from \id{-nya} anaphora resolution would require either a higher-accuracy resolver (neural or LLM-based) or oracle manual annotation. The realistic deployable gain reported here is bounded above by the gain that a perfect resolver would produce, and below by the gain of a degenerate resolver that classifies every occurrence as non-anaphoric.
 
 Our evaluation is on a single benchmark (MIRACL-id). \todo{Add note on Mr. TyDi-id replication if attempted.} Generalisation to other Indonesian retrieval contexts (legal, medical, social-media) requires additional evaluation.
 
 The Sastrawi clitic condition (Strategy~3) depends on Sastrawi's internal Indonesian root dictionary; rare or technical-domain vocabulary may produce false positives and false negatives. \todo{Quantify if observed in failure analysis.}
 
-The naive-strip baseline (Strategy~2) is a deliberate strawman; the more important comparison is between Keep, Sastrawi clitic, and Oracle. Naive is included to quantify the harm of a preprocessing pattern that does appear in practitioner code, not to argue that anyone should use it.
+The naive-strip baseline (Strategy~2) is a deliberate harm-baseline; the more important comparison is between Keep, Sastrawi clitic, Sentinel, and Rule-resolved. Naive is included to quantify the harm of a preprocessing pattern that does appear in practitioner code, not to argue that anyone should use it.
 
 \subsection{Threats to construct validity}
 

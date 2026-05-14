@@ -11,18 +11,17 @@
 
 \subsection{Indexing}
 
-For each of the five preprocessing strategies, two indices are built per the BM25 and BGE-m3 configurations specified in Section~\ref{sec:method}.
+For each of the five preprocessing strategies, two indices are built per the BM25 and BGE-m3 configurations specified in \secref{sec:method}.
 
-\subsection{Oracle subset annotation}
+\subsection{Rule-based resolver implementation (Strategy 5)}
 
-\todo{Week~2 task. Report: number of queries sampled, number with usable anaphoric -nya in gold passages, inter-annotator agreement on the 20\% double-annotated portion.}
+The rule-based \id{-nya} anaphora resolver is implemented as a three-stage pipeline: (i)~clitic detection using the same dictionary-guarded matcher as Strategies 3 and 4, (ii)~functional-class classification (possessive, definite, anaphoric, nominaliser) using surface-context heuristics over the host word's part-of-speech and the salience of preceding noun phrases, and (iii)~antecedent substitution for occurrences classified as anaphoric, selecting the most recent salient noun phrase from the prior one to two sentences. The pipeline is applied uniformly to all 1.4M MIRACL-id passages. \todo{Report total wall-clock time and CPU profile once implementation is complete.}
 
 \subsection{Sensitivity stratification}
 
 Per-query \id{-nya} sensitivity scores are computed using the formula
-
 \begin{equation}
 \mathrm{sensitivity}(q) = \alpha \cdot c_{\text{nya}}(q) + \beta \cdot c_{\text{ana}}(q) + \gamma \cdot \mathbf{1}[\text{queried entity referenced via -nya}]
+\label{eq:sensitivity}
 \end{equation}
-
 where $c_{\text{nya}}$ and $c_{\text{ana}}$ are counts of total and heuristically-detected anaphoric \id{-nya} occurrences in the gold-relevant passages, with weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ (frozen prior to main analysis). Queries are stratified into low/mid/high tertiles for the H5 analysis.

@@ -143,7 +143,7 @@ Suggested branch hygiene during the experiment:
 - `main` — methodology + paper draft, always compiles cleanly
 - `experiment/<strategy-name>` — work-in-progress code for each preprocessing condition
 - `paper/<section>` — paper section revisions
-- `annotation/<batch>` — oracle annotation passes
+- `annotation/<batch>` — resolver sanity-check annotation passes (Strategy 5)
 
 After Day 1 verification, the first non-trivial branches will likely be `experiment/keep-baseline` and `experiment/sastrawi-clitic`.
 

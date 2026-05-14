@@ -5,10 +5,16 @@
 % \input from any document that states the research questions.
 % =============================================================================
 
-\begin{description}
-    \item[\textbf{RQ1 (headline).}] Does Late Chunking actually resolve cross-sentence anaphora on Indonesian retrieval, or does its gain over Naive chunking come from a bag-of-document smoothing effect that is invariant to sequential order?
-    \item[\textbf{RQ2 (linguistic stratification).}] Are Late Chunking's gains heterogeneous by Indonesian anaphora type --- specifically across the \id{-nya} clitic, overt pronouns (\id{ia}, \id{dia}), zero-anaphora, and no-anaphora strata?
-    \item[\textbf{RQ3 (provenance contrast).}] Does the benefit of Late Chunking transfer across native and translated portions of id-Wiki, given that translationese is known to over-realize pronouns that the encoder can bind through?
-    \item[\textbf{RQ4 (pipeline robustness).}] Does the Late-vs-Naive gain at first-stage retrieval survive cross-encoder reranking with BGE-reranker-v2-m3?
-    \item[\textbf{RQ5 (chunk-size interaction).}] Is the chunk-size $\times$ method interaction shaped by Indonesian morphology --- specifically, is Late's relative gain larger at 256 tokens than at 512, where shorter chunks have a higher anaphora-cut rate?
-\end{description}
+\noindent\textbf{RQ1 (headline).} Does Late Chunking actually resolve cross-sentence anaphora on Indonesian retrieval, or does its gain over Naive chunking come from a bag-of-document smoothing effect that is invariant to sequential order?
+
+\smallskip
+\noindent\textbf{RQ2 (linguistic stratification).} Are Late Chunking's gains heterogeneous by Indonesian anaphora type --- specifically across the \id{-nya} clitic, overt pronouns (\id{ia}, \id{dia}), zero-anaphora, and no-anaphora strata?
+
+\smallskip
+\noindent\textbf{RQ3 (provenance contrast).} Does the benefit of Late Chunking transfer across native and translated portions of id-Wiki, given that translationese is known to over-realize pronouns that the encoder can bind through?
+
+\smallskip
+\noindent\textbf{RQ4 (pipeline robustness).} Does the Late-vs-Naive gain at first-stage retrieval survive cross-encoder reranking with BGE-reranker-v2-m3?
+
+\smallskip
+\noindent\textbf{RQ5 (chunk-size interaction).} Is the chunk-size $\times$ method interaction shaped by Indonesian morphology --- specifically, is Late's relative gain larger at 256 tokens than at 512, where shorter chunks have a higher anaphora-cut rate?

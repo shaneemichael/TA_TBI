@@ -2,13 +2,19 @@
 % shared/hypotheses.tex
 % Single responsibility: canonical statement of the five pre-registered hypotheses.
 % Change this file when a hypothesis text or test is updated.
-% \input from any document that needs to state the hypotheses (paper methodology section, proposal RQ section, supplementary, etc.).
+% \input from any document that needs to state the hypotheses.
 % =============================================================================
 
-\begin{description}
-    \item[\textbf{H1} (mechanism).] Late Chunking's nDCG@10 gain over Naive on anaphora-bearing queries shrinks by at least 50\% under sentence-shuffle, while its gain on lexical-overlap (no-anaphora) queries is shuffle-invariant. \textit{Test:} paired bootstrap on per-query $\Delta$nDCG@10 with method $\times$ shuffle interaction (one-tailed, $\alpha = 0.05$).
-    \item[\textbf{H2} (anaphora stratification).] Late Chunking's per-query gain is ordered \id{-nya}~clitic $>$ overt pronoun $>$ zero-anaphora $>$ no-anaphora. \textit{Test:} stratified analysis with Holm-corrected pairwise Wilcoxon signed-rank across the four strata.
-    \item[\textbf{H3} (provenance).] Translated id-Wiki passages exhibit larger Late-over-Naive gains than native id-Wiki passages, because translationese over-realizes the pronouns the encoder binds through. \textit{Test:} provenance $\times$ method ANOVA on per-document $\Delta$nDCG@10, $\alpha = 0.05$.
-    \item[\textbf{H4} (reranker absorption).] When BGE-reranker-v2-m3 reranks the top-100 candidates, the Late--Naive gain at nDCG@10 drops to at most 25\% of its first-stage magnitude. \textit{Test:} two-stage paired bootstrap with pre/post-rerank delta, one-tailed.
-    \item[\textbf{H5} (chunk-size interaction).] Late's relative gain at chunk size 256 is larger than at 512. \textit{Test:} method $\times$ size interaction term in a linear mixed model, $\alpha = 0.05$.
-\end{description}
+\noindent\textbf{H1 (mechanism).} Late Chunking's nDCG@10 gain over Naive on anaphora-bearing queries shrinks by at least 50\% under sentence-shuffle, while its gain on lexical-overlap (no-anaphora) queries is shuffle-invariant. \textit{Test:} paired bootstrap on per-query $\Delta$nDCG@10 with method $\times$ shuffle interaction (one-tailed, $\alpha = 0.05$).
+
+\smallskip
+\noindent\textbf{H2 (anaphora stratification).} Late Chunking's per-query gain is ordered \id{-nya}~clitic $>$ overt pronoun $>$ zero-anaphora $>$ no-anaphora. \textit{Test:} stratified analysis with Holm-corrected pairwise Wilcoxon signed-rank across the four strata.
+
+\smallskip
+\noindent\textbf{H3 (provenance).} Translated id-Wiki passages exhibit larger Late-over-Naive gains than native id-Wiki passages, because translationese over-realizes the pronouns the encoder binds through. \textit{Test:} provenance $\times$ method ANOVA on per-document $\Delta$nDCG@10, $\alpha = 0.05$.
+
+\smallskip
+\noindent\textbf{H4 (reranker absorption).} When BGE-reranker-v2-m3 reranks the top-100 candidates, the Late--Naive gain at nDCG@10 drops to at most 25\% of its first-stage magnitude. \textit{Test:} two-stage paired bootstrap with pre/post-rerank delta, one-tailed.
+
+\smallskip
+\noindent\textbf{H5 (chunk-size interaction).} Late's relative gain at chunk size 256 is larger than at 512. \textit{Test:} method $\times$ size interaction term in a linear mixed model, $\alpha = 0.05$.

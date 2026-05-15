@@ -1,0 +1,22 @@
+seed: 42
+dataset:
+  name: miracl/miracl
+  language: id
+  query_split: dev
+  corpus_split: train
+metrics:
+  - ndcg@1
+  - ndcg@10
+  - mrr@100
+  - recall@10
+  - recall@100
+strategies:
+  - keep
+  - naive_strip
+  - sastrawi_clitic
+  - sentinel
+  - rule_resolved
+retrievers:
+  - bm25
+  - bge_m3
+

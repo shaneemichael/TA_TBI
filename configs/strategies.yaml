@@ -1,0 +1,15 @@
+strategies:
+  - name: keep
+    description: Identity preprocessing with Unicode NFC normalization.
+  - name: naive_strip
+    description: Regex suffix stripping of words ending in nya.
+  - name: sastrawi_clitic
+    description: Sastrawi possessive-pronoun removal guarded by an Indonesian root dictionary.
+    requires_root_dictionary: true
+  - name: sentinel
+    description: Regex suffix replacement with a spaced <NYA> sentinel token.
+  - name: rule_resolved
+    description: Rule-based anaphora resolver with lazy POS tagger integration.
+    requires_root_dictionary: true
+    default_pos_tagger: stanza
+

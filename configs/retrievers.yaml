@@ -1,0 +1,15 @@
+retrievers:
+  bm25:
+    backend: pyserini
+    k1: 0.9
+    b: 0.4
+    hits: 1000
+  bge_m3:
+    backend: faiss
+    model_name: BAAI/bge-m3
+    mode: dense
+    max_length: 512
+    hnsw_m: 32
+    ef_construction: 200
+    hits: 1000
+

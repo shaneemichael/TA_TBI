@@ -1,0 +1,10 @@
+data_dir: data
+raw_dir: data/raw
+processed_dir: data/processed
+artifact_dir: artifacts
+index_dir: artifacts/indexes
+run_dir: results/runs
+metric_dir: results/metrics
+report_dir: results/reports
+log_dir: results/logs
+

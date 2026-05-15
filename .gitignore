@@ -64,8 +64,13 @@ venv/
 .ipynb_checkpoints/
 
 # Experiment artifacts (large files, track separately or via DVC)
+data/raw/
+data/processed/
+artifacts/indexes/
 results/raw/
 results/indexes/
+results/runs/
+results/metrics/
 *.faiss
 *.bin
 *.pkl

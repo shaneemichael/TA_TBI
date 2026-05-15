@@ -255,22 +255,45 @@ def test_resolver_substitutes_first_nya_correctly_in_multi_nya_passage():
     assert "Pidato Sukarno" in result
 
 
-def test_resolver_known_limitation_chained_nya_picks_prior_nya_as_antecedent():
-    """KNOWN LIMITATION: the second -nya in a chain may pick a prior -nya form as antecedent.
+def test_resolver_chained_nya_skips_prior_nya_as_antecedent():
+    """The chained-nya sweep: -nya forms must NOT be picked as antecedent candidates.
 
-    ``CAPITALIZED_NP_RE`` does not exclude tokens that are themselves -nya forms. So in
-    ``Pidatonya menggemparkan. Karyanya juga``, the resolver searches the most recent
-    sentence and matches ``Pidatonya`` (itself a clitic form) as the antecedent for
-    ``Karyanya``, producing ``Karya Pidatonya`` — a nonsense chain.
-
-    A robustness pass would filter ``-nya``-ending tokens from antecedent candidates.
-    Out of scope for the 3-5h Phase 1 sprint; documented in the paper's limitations.
+    Pre-sweep behaviour: ``Karyanya`` resolved to ``Karya Pidatonya`` because the regex
+    matched ``Pidatonya`` as a capitalised NP candidate. Post-sweep: the resolver iterates
+    candidates and skips any ending in ``-nya``, falling back to the next eligible
+    capitalised NP. With ``Sukarno`` reachable in the older sentence, ``Karyanya`` now
+    resolves to ``Karya Sukarno``.
     """
     resolver = RuleBasedNyaResolver(root_dict={"pidato", "karya"})
     text = "Sukarno datang. Pidatonya menggemparkan. Karyanya juga terkenal."
     result = resolver.resolve(text)
-    # The second -nya wrongly picks the prior -nya form as its antecedent
-    assert "Karya Pidatonya" in result
+    # The first -nya still resolves to Sukarno (unchanged behaviour)
+    assert "Pidato Sukarno" in result
+    # The second -nya now correctly skips "Pidatonya" and falls back to "Sukarno"
+    assert "Karya Sukarno" in result
+    # And the nonsense chain is gone
+    assert "Karya Pidatonya" not in result
+
+
+def test_resolver_chain_of_three_falls_back_gracefully_when_all_candidates_are_nya():
+    """When every in-window candidate is a -nya form, the resolver gives up cleanly.
+
+    Window=2 sentences. For ``Bukunya`` at the end, the prior 2 sentences contain only
+    ``Pidatonya`` and ``Karyanya`` as capitalised candidates — both -nya forms, both
+    skipped. ``Sukarno`` is out of window. Resolver returns None → POSSESSIVE → no
+    substitution. Conservative and honest behaviour.
+    """
+    resolver = RuleBasedNyaResolver(
+        root_dict={"pidato", "karya", "buku"}, antecedent_window_sentences=2
+    )
+    text = "Sukarno bicara. Pidatonya bagus. Karyanya hebat. Bukunya laris."
+    result = resolver.resolve(text)
+    # Pidatonya resolves correctly (Sukarno is in its window)
+    assert "Pidato Sukarno" in result
+    # Karyanya falls back through Pidatonya skip to Sukarno (still in window=2)
+    assert "Karya Sukarno" in result
+    # Bukunya: window covers only [Pidatonya, Karyanya] sentences; both candidates skipped → no substitution
+    assert "Bukunya" in result, "Bukunya should remain unsubstituted when no proper-noun antecedent is in window"
 
 
 def test_resolver_known_limitation_picks_sentence_initial_common_noun():

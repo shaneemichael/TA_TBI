@@ -147,9 +147,21 @@ class RuleBasedNyaResolver:
         return NyaFunction.POSSESSIVE
 
     def _select_antecedent(self, left_context: str) -> str | None:
+        """Return the most-recent salient capitalised NP in the prior sentence window.
+
+        Skips candidates that are themselves ``-nya`` forms — those are clitic occurrences
+        needing resolution, not valid antecedents. Without this filter, chains of ``-nya``
+        words pick each other (e.g., ``Karyanya`` → ``Karya Pidatonya``), producing
+        nonsense substitutions. When all in-window candidates are ``-nya`` forms, returns
+        None and the caller falls through to POSSESSIVE classification (no substitution),
+        which is the correct conservative behaviour.
+        """
+
         sentences = [m.group(0).strip() for m in SENTENCE_RE.finditer(left_context) if m.group(0).strip()]
         for sentence in reversed(sentences[-self.antecedent_window_sentences :]):
-            match = CAPITALIZED_NP_RE.search(sentence)
-            if match:
-                return match.group(0)
+            for match in CAPITALIZED_NP_RE.finditer(sentence):
+                candidate = match.group(0)
+                if candidate.lower().endswith("nya"):
+                    continue
+                return candidate
         return None

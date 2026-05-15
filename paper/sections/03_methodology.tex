@@ -48,7 +48,7 @@ where $c_{\text{nya}}$ and $c_{\text{ana}}$ are counts of total and heuristicall
 
 \subsection{Statistical analysis}
 
-Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across the $\binom{5}{2} = 10$ pairs per retriever ($\alpha = 0.005$ within each retriever family). Effect sizes are reported as Cliff's $\delta$. Bootstrap 95\% confidence intervals on $\Delta$nDCG@10 are computed with 10{,}000 resamples. The H4 stratification analysis uses a mixed-effects model with strategy-by-stratum interaction. The protocol follows the recommendations of Dror et al.~\cite{dror2018hitchhiker}.
+Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across the $\binom{5}{2} = 10$ pairs per retriever ($\alpha = 0.005$ within each retriever family). Effect sizes are reported as Cliff's $\delta$. Bootstrap 95\% confidence intervals on $\Delta$nDCG@10 are computed with 10{,}000 resamples. The H5 stratification analysis uses a mixed-effects model with strategy-by-stratum interaction. The protocol follows the recommendations of Dror et al.~\cite{dror2018hitchhiker}.
 
 \subsection{Reproducibility and pre-registration}
 

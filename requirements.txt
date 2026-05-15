@@ -1,0 +1,21 @@
+# Core analysis/runtime dependencies.
+numpy>=1.26,<3
+pandas>=2.2,<3
+scipy>=1.12,<2
+statsmodels>=0.14,<1
+PyYAML>=6.0,<7
+tomli>=2.0,<3; python_version<'3.11'
+
+# Optional experiment dependencies. Install only when running the corresponding stage.
+# datasets>=2.19
+# pyserini>=0.21
+# pytrec-eval>=0.5
+# PySastrawi>=1.2
+# stanza>=1.8
+# sentence-transformers>=2.7
+# faiss-cpu>=1.8
+# torch>=2.2
+
+# Development
+pytest>=8.0
+ruff>=0.5

@@ -6,7 +6,12 @@ import argparse
 from pathlib import Path
 
 from nya_ir.data.io import write_jsonl
-from nya_ir.data.miracl import load_miracl_corpus, load_miracl_queries
+from nya_ir.data.miracl import (
+    load_corpus_jsonl,
+    load_miracl_corpus,
+    load_miracl_queries,
+    load_query_jsonl,
+)
 from nya_ir.experiment import StrategyName
 from nya_ir.preprocessing import SuffixNyaRemover, apply_strategy
 
@@ -19,11 +24,25 @@ def load_root_dict(path: Path | None) -> set[str]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--strategy", choices=[strategy.value for strategy in StrategyName], required=True)
+    parser.add_argument(
+        "--strategy",
+        choices=[strategy.value for strategy in StrategyName],
+        required=True,
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--language", default="id")
     parser.add_argument("--query-split", default="dev")
     parser.add_argument("--corpus-split", default="train")
+    parser.add_argument(
+        "--queries-jsonl",
+        type=Path,
+        help="Local query JSONL for offline smoke tests.",
+    )
+    parser.add_argument(
+        "--corpus-jsonl",
+        type=Path,
+        help="Local corpus JSONL for offline smoke tests.",
+    )
     parser.add_argument("--root-dict", type=Path)
     parser.add_argument("--limit", type=int, help="Optional smoke-test row limit.")
     parser.add_argument("--dry-run", action="store_true", help="Print the planned outputs only.")
@@ -36,7 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if (args.queries_jsonl is None) != (args.corpus_jsonl is None):
+        parser.error("--queries-jsonl and --corpus-jsonl must be provided together")
+
     strategy = StrategyName(args.strategy)
     root_dict = load_root_dict(args.root_dict)
     remover = SuffixNyaRemover() if args.use_suffix_remover else None
@@ -48,8 +71,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"corpus  -> {corpus_path}")
         return 0
 
+    query_source = (
+        load_query_jsonl(args.queries_jsonl)
+        if args.queries_jsonl is not None
+        else load_miracl_queries(split=args.query_split, language=args.language)
+    )
     queries = []
-    for index, query in enumerate(load_miracl_queries(split=args.query_split, language=args.language)):
+    for index, query in enumerate(query_source):
         if args.limit is not None and index >= args.limit:
             break
         queries.append(
@@ -64,8 +92,13 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
 
+    corpus_source = (
+        load_corpus_jsonl(args.corpus_jsonl)
+        if args.corpus_jsonl is not None
+        else load_miracl_corpus(split=args.corpus_split, language=args.language)
+    )
     passages = []
-    for index, passage in enumerate(load_miracl_corpus(split=args.corpus_split, language=args.language)):
+    for index, passage in enumerate(corpus_source):
         if args.limit is not None and index >= args.limit:
             break
         contents = passage.text if passage.title is None else f"{passage.title}\n{passage.text}"

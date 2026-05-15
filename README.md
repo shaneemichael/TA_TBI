@@ -136,6 +136,75 @@ xelatex main.tex
 
 `latexmk -xelatex` works too.
 
+## Python experiment code
+
+The executable experiment scaffold lives under `src/nya_ir/` using a standard
+`src/` package layout. The paper remains separate from code; notebooks are not
+part of the main workflow.
+
+```
+src/nya_ir/
+|-- preprocessing/     Keep, Naive strip, Sastrawi clitic, Sentinel, Rule-resolved
+|-- data/              MIRACL loaders plus qrels/run-file I/O
+|-- retrieval/         Pyserini BM25 and BGE-m3/FAISS adapter boundaries
+|-- evaluation/        nDCG, MRR, recall, and per-query metric tables
+|-- analysis/          Friedman/Wilcoxon helpers, bootstrap CI, sensitivity scores
+|-- utils/             config loading, logging, hashes, random seeds
+`-- cli/               importable command-line entrypoints
+
+configs/              YAML experiment, retriever, strategy, and path configs
+scripts/              direct repository wrappers for the CLI entrypoints
+tests/                unit tests for preprocessing, metrics, and config utilities
+```
+
+Install the lightweight development environment:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev]"
+```
+
+Install optional experiment dependencies only when needed:
+
+```bash
+pip install -e ".[preprocessing,data,bm25]"
+pip install -e ".[dense]"
+```
+
+Run the current checks:
+
+```bash
+python -m pytest
+python scripts/verify_preprocessing.py
+python scripts/prepare_miracl.py --help
+python scripts/build_index.py --help
+python scripts/run_retrieval.py --help
+python scripts/evaluate_runs.py --help
+python scripts/analyze_results.py --help
+```
+
+Typical staged workflow:
+
+```bash
+# 1. Verify Day 1 preprocessing behavior on canonical false positives.
+python scripts/verify_preprocessing.py
+
+# 2. Prepare a tiny smoke-test split without committing large artifacts.
+python scripts/prepare_miracl.py --strategy keep --limit 10 --dry-run
+
+# 3. Dry-run the BM25 indexing command before expensive execution.
+python scripts/build_index.py \
+  --retriever bm25 \
+  --collection-dir data/processed/keep/corpus_train.jsonl \
+  --index-dir artifacts/indexes/bm25/keep
+```
+
+The CLI scripts never download MIRACL, build indexes, or run retrieval at import
+time. Heavy dependencies such as Pyserini, FAISS, sentence-transformers,
+PySastrawi, Stanza, and Hugging Face `datasets` are loaded only inside the
+specific adapter or command that needs them.
+
 ## Working in branches
 
 Suggested branch hygiene during the experiment:

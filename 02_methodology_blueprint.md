@@ -2,10 +2,14 @@
 
 **Project:** Indonesian *-nya* preprocessing for information retrieval
 **Researcher:** Maskrio
-**Date:** 2026-05-12 (revised 2026-05-14 — see revision history at end)
+**Date:** 2026-05-12 (revised 2026-05-14, 2026-05-15 — see revision history at end)
 **Stage:** Phase 1 — Scoping (deep-research pipeline, `research_architect_agent` output)
 
 > **Revision note (v3, 2026-05-14):** Strategy 5 reconfigured from manual oracle annotation on a 100–150-query subset to fully-automated rule-based anaphora resolution applied to the entire 1.4M-passage MIRACL-id corpus. Rationale: LLM-based resolution is cost-prohibitive at corpus scale (~$3,500 + 24 GPU-h for GPT-4o-class API); manual oracle annotation is out of scope for an S1 thesis. The rule-based pipeline is free, deterministic, reproducible, and resolves on the full corpus rather than a subset — eliminating the "Strategy 5 uses a different population than Strategies 1-4" methodological awkwardness of the original design. Hypothesis H4 reformulated accordingly: rule-based resolution vs. per-retriever-best non-resolving strategy, paired Wilcoxon on the full 960 dev queries.
+
+> **Revision note (v4, 2026-05-15) — Path A locked for Strategy 3:** `root_dict` for Strategy 3 (and Strategy 5's dictionary guard) is set to **Sastrawi's bundled ~30,000-word Indonesian root dictionary** (`kata-dasar.txt`, loaded via `StemmerFactory.get_words()`). Rationale: this mirrors what real practitioners using Sastrawi would experience and is the most defensible reproducibility choice — anyone with PySastrawi installed can replicate exactly. **Known consequence:** adverbial *-nya* forms whose roots are in Sastrawi's dictionary (e.g., `biasanya → biasa`, `karenanya → karena`, `tahunya → tahu`) will be stripped under Strategy 3. This is a known limitation of Strategy 3 under Path A and will be acknowledged in the Discussion's limitations subsection. The alternative (curate a custom dictionary excluding adverbial-derivative roots) was rejected as a research project of its own that would invite a "you tuned the dictionary" critique.
+
+> **Revision note (v4, 2026-05-15) — Strategy 3 implementation hardening:** the actual Sastrawi class is `Sastrawi.Stemmer.Context.Visitor.RemoveInflectionalPossessivePronoun` (not `Sastrawi.Stemmer.Filter.RemovePossessivePronoun` as v3 stated — that module does not exist in PySastrawi). The visitor exposes `remove(word)` not `filter(token)`; the codebase wraps it via a small `_SastrawiCliticAdapter` to satisfy the `PossessivePronounRemover` Protocol. The visitor itself implements the original Asian (2007) confix-stripping algorithm verbatim — the foundational reference cited in our bibliography.
 
 ---
 
@@ -133,24 +137,35 @@ This condition is explicitly included to **demonstrate the problem** and serves 
 
 ### Strategy 3 — Sastrawi clitic rule (linguistically informed)
 
-Use Sastrawi's *-nya* clitic-removal stage **in isolation**, not full Sastrawi stemming, wrapped with an explicit Indonesian-dictionary guard:
+Use Sastrawi's *-nya* clitic-removal stage **in isolation** (not full Sastrawi stemming, which would also strip prefixes and other suffixes), wrapped with an explicit Indonesian-dictionary guard. The visitor `RemoveInflectionalPossessivePronoun` implements the Asian (2007) regex `r'-*(ku|mu|nya)$'`; we wrap its `remove(word)` method to satisfy the `filter(token)` Protocol used by `preprocess_sastrawi_clitic`. Path A (v4) sets `root_dict` to Sastrawi's bundled ~30k-word `kata-dasar.txt`.
 
 ```python
-from Sastrawi.Stemmer.Filter.RemovePossessivePronoun import RemovePossessivePronoun
+# Implementation (see src/nya_ir/preprocessing/sastrawi.py and strategies.py)
+from Sastrawi.Stemmer.Context.Visitor.RemoveInflectionalPossessivePronoun import (
+    RemoveInflectionalPossessivePronoun,
+)
+from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
-remove_possessive = RemovePossessivePronoun()
+# Path A: Sastrawi-bundled dictionary
+root_dict = frozenset(StemmerFactory().get_words())  # ~30,000 entries
 
-def preprocess_sastrawi_clitic(text: str, root_dict: set[str]) -> str:
+class _SastrawiCliticAdapter:
+    def __init__(self, visitor): self._visitor = visitor
+    def filter(self, token: str) -> str: return self._visitor.remove(token)
+
+remove_possessive = _SastrawiCliticAdapter(RemoveInflectionalPossessivePronoun())
+
+def preprocess_sastrawi_clitic(text, root_dict, remover=remove_possessive):
     tokens = text.split()
     out = []
     for tok in tokens:
-        stripped = remove_possessive.filter(tok)
-        # dictionary guard: commit the strip only if the result is a known root
-        out.append(stripped if stripped in root_dict else tok)
+        stripped = remover.filter(tok)
+        # dictionary guard: accept the strip only if the result is a known root
+        out.append(stripped if stripped.casefold() in root_dict else tok)
     return ' '.join(out)
 ```
 
-**CRITICAL Day 1 verification:** confirm that the dictionary guard prevents over-strips on the canonical false-positive set (*punya, tanya, hanya, biasanya, Kenya, Sonya, Tanya*) before running on the full corpus.
+**Verification status (2026-05-15):** all 32 unit tests pass on a clean `pip install PySastrawi` environment. The dictionary guard preserves all 7 canonical false positives (*punya, tanya, hanya, biasanya, Kenya, Sonya, Tanya*) when run with the small test dictionary `{rumah, buku, pidato}`. Under Path A with the full Sastrawi dictionary, 6 of 7 are still preserved; *biasanya* is stripped to *biasa* (because *biasa* is a known root) — this is the documented limitation in v4.
 
 ### Strategy 4 — Sentinel
 

@@ -1,7 +1,11 @@
 """Preprocessing strategies for Indonesian ``-nya`` experiments."""
 
 from nya_ir.preprocessing.resolver import RuleBasedNyaResolver
-from nya_ir.preprocessing.sastrawi import SuffixNyaRemover, create_sastrawi_remover
+from nya_ir.preprocessing.sastrawi import (
+    SuffixNyaRemover,
+    create_sastrawi_remover,
+    load_sastrawi_root_dictionary,
+)
 from nya_ir.preprocessing.strategies import (
     NYA_PATTERN,
     apply_strategy,
@@ -18,6 +22,7 @@ __all__ = [
     "SuffixNyaRemover",
     "apply_strategy",
     "create_sastrawi_remover",
+    "load_sastrawi_root_dictionary",
     "preprocess_keep",
     "preprocess_naive_strip",
     "preprocess_rule_resolved",

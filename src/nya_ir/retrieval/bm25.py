@@ -9,17 +9,36 @@ from nya_ir.retrieval.base import RetrievalHit
 
 
 class PyseriniBM25Searcher:
-    """Thin wrapper around Pyserini's LuceneSearcher."""
+    """Thin wrapper around Pyserini's LuceneSearcher.
 
-    def __init__(self, index_dir: str | Path) -> None:
+    Conforms to the :class:`nya_ir.retrieval.base.Retriever` protocol.
+    BM25 parameters are applied at construction so callers cannot forget to call
+    ``set_bm25`` before ``search``.
+    """
+
+    def __init__(
+        self,
+        index_dir: str | Path,
+        *,
+        k1: float = 0.9,
+        b: float = 0.4,
+    ) -> None:
         try:
+            # pyrefly: ignore[missing-import]  # optional dep; raised cleanly below
             from pyserini.search.lucene import LuceneSearcher
         except ImportError as exc:  # pragma: no cover - depends on optional package
             raise OptionalDependencyError("pyserini", "bm25") from exc
         self._searcher = LuceneSearcher(str(index_dir))
+        self._searcher.set_bm25(k1=k1, b=b)
+        self.k1 = k1
+        self.b = b
 
     def set_bm25(self, *, k1: float = 0.9, b: float = 0.4) -> None:
+        """Re-tune BM25 parameters after construction."""
+
         self._searcher.set_bm25(k1=k1, b=b)
+        self.k1 = k1
+        self.b = b
 
     def search(self, query: str, *, top_k: int = 1000) -> list[RetrievalHit]:
         hits = self._searcher.search(query, k=top_k)
@@ -40,6 +59,10 @@ def build_pyserini_index(
 
     The function does not execute Java/Pyserini. Keeping command construction separate
     makes scripts easier to dry-run and log before expensive indexing.
+
+    ``collection_dir`` is expected to be a directory of ``JsonCollection`` JSONL files
+    (one document per line, each with ``id`` and ``contents`` keys); the prepared
+    output of :mod:`nya_ir.cli.prepare_miracl` satisfies this contract.
     """
 
     return [

@@ -4,20 +4,49 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
-from nya_ir.data.records import RunEntry
 from nya_ir.data.io import write_trec_run
+from nya_ir.data.records import RunEntry
 from nya_ir.experiment import RetrieverName
-from nya_ir.retrieval.bm25 import PyseriniBM25Searcher
+from nya_ir.retrieval.base import Retriever
 
 
-def iter_query_jsonl(path: Path):
+def iter_query_jsonl(path: Path) -> Iterator[tuple[str, str]]:
     with path.open("r", encoding="utf-8") as handle:
         for line in handle:
             if line.strip():
                 row = json.loads(line)
                 yield str(row["id"]), str(row["contents"])
+
+
+def run_searches(
+    searcher: Retriever,
+    queries: Iterable[tuple[str, str]],
+    *,
+    run_id: str,
+    hits: int,
+) -> list[RunEntry]:
+    """Apply ``searcher`` to ``queries`` and collect TREC run entries.
+
+    Factored out of :func:`main` so tests can inject a stub searcher that does not
+    require a real Lucene index or Pyserini install.
+    """
+
+    entries: list[RunEntry] = []
+    for query_id, query_text in queries:
+        for hit in searcher.search(query_text, top_k=hits):
+            entries.append(
+                RunEntry(
+                    query_id=query_id,
+                    doc_id=hit.doc_id,
+                    rank=hit.rank,
+                    score=hit.score,
+                    run_id=run_id,
+                )
+            )
+    return entries
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,26 +62,29 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_searcher(args: argparse.Namespace) -> Retriever:
+    retriever = RetrieverName(args.retriever)
+    if retriever is RetrieverName.BM25:
+        from nya_ir.retrieval.bm25 import PyseriniBM25Searcher
+
+        return PyseriniBM25Searcher(args.index_dir, k1=args.k1, b=args.b)
+    raise SystemExit(
+        f"Retriever {retriever.value!r} is scaffolded but not yet wired into this CLI."
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    retriever = RetrieverName(args.retriever)
-    if retriever is not RetrieverName.BM25:
-        raise SystemExit("Dense retrieval runner is scaffolded but not implemented yet.")
+    if not args.queries.exists():
+        raise SystemExit(f"Queries file not found: {args.queries}")
 
-    searcher = PyseriniBM25Searcher(args.index_dir)
-    searcher.set_bm25(k1=args.k1, b=args.b)
-    entries: list[RunEntry] = []
-    for query_id, query_text in iter_query_jsonl(args.queries):
-        for hit in searcher.search(query_text, top_k=args.hits):
-            entries.append(
-                RunEntry(
-                    query_id=query_id,
-                    doc_id=hit.doc_id,
-                    rank=hit.rank,
-                    score=hit.score,
-                    run_id=args.run_id,
-                )
-            )
+    searcher = _build_searcher(args)
+    entries = run_searches(
+        searcher,
+        iter_query_jsonl(args.queries),
+        run_id=args.run_id,
+        hits=args.hits,
+    )
     write_trec_run(args.output, entries)
     print(f"Wrote {len(entries)} run entries to {args.output}")
     return 0

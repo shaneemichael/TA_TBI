@@ -21,13 +21,13 @@ def _load_dataset(*args: object, **kwargs: object):
 
 
 def load_miracl_queries(split: str = "dev", language: str = "id") -> Iterable[Query]:
-    dataset = _load_dataset("miracl/miracl", language, split=split)
+    dataset = _load_dataset("miracl/miracl", language, split=split, trust_remote_code=True)
     for row in dataset:
         yield Query(query_id=str(row.get("query_id") or row.get("id")), text=str(row["query"]))
 
 
 def load_miracl_corpus(split: str = "train", language: str = "id") -> Iterable[Passage]:
-    dataset = _load_dataset("miracl/miracl-corpus", language, split=split)
+    dataset = _load_dataset("miracl/miracl-corpus", language, split=split, trust_remote_code=True)
     for row in dataset:
         yield Passage(
             doc_id=str(row.get("docid") or row.get("id")),

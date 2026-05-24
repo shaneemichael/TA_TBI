@@ -6,9 +6,23 @@ import argparse
 from itertools import combinations
 from pathlib import Path
 
-from nya_ir.analysis.stats import bootstrap_mean_delta_ci, cliffs_delta, wilcoxon_signed_rank
+from nya_ir.analysis.stats import (
+    Alternative,
+    bootstrap_mean_delta_ci,
+    cliffs_delta,
+    wilcoxon_signed_rank,
+)
 
 METRIC_COLUMNS = ("ndcg@1", "ndcg@10", "recall@10", "mrr@100", "recall@100")
+
+# Pre-registered directional hypotheses. Keys are sorted (left, right) condition tuples
+# matching the iteration order of `combinations(sorted(unique_conditions), 2)`; values
+# are SciPy's `alternative` argument. H2 predicts Naive strip < Keep (one-tailed less)
+# on both retrievers. Add new directional pairs here as new hypotheses are pre-registered.
+DEFAULT_DIRECTIONAL_PAIRS: dict[tuple[str, str], Alternative] = {
+    ("bm25__keep", "bm25__naive_strip"): "less",
+    ("bge_m3__keep", "bge_m3__naive_strip"): "less",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,61 +67,124 @@ def _summary(frame, metric: str):
     )
 
 
-def _pairwise(frame, metric: str, *, bootstrap_resamples: int):
+def _retriever_family(condition: str) -> str:
+    """Extract retriever name from a condition id like 'bm25__keep' → 'bm25'.
+
+    Falls back to ``"_global_"`` if the condition does not follow the
+    ``{retriever}__{strategy}`` convention from ``ExperimentCondition.run_id``.
+    Used to stratify Bonferroni correction per retriever family — the
+    methodology blueprint pre-commits to correction within each retriever, not
+    across the full conditions matrix.
+    """
+
+    parts = condition.split("__", 1)
+    return parts[0] if len(parts) == 2 else "_global_"
+
+
+def _pairwise(
+    frame,
+    metric: str,
+    *,
+    bootstrap_resamples: int,
+    directional_pairs: dict[tuple[str, str], Alternative] | None = None,
+    apply_bonferroni: bool = True,
+):
+    """Pairwise comparisons across unique conditions in ``frame``.
+
+    Comparisons are **stratified by retriever family** (parsed from the
+    ``{retriever}__{strategy}`` convention); cross-retriever pairs are skipped
+    because the methodology pre-registers H3 as a separate architecture-interaction
+    analysis, not as Bonferroni-corrected pairwise.
+
+    Bonferroni correction is applied within each retriever family: each pair's
+    ``bonferroni_p_value`` is ``min(1.0, raw_p_value * pairs_in_family)``. Set
+    ``apply_bonferroni=False`` to skip (useful for diagnostic runs).
+
+    ``directional_pairs`` maps ``(sorted-left, sorted-right)`` condition tuples to the
+    Wilcoxon ``alternative``; unmapped pairs default to ``"two-sided"``. Pre-registered
+    directional hypotheses (e.g., H2: Naive < Keep) must appear here to get the one-tailed
+    p-values the methodology blueprint commits to.
+    """
+
     import pandas as pd
 
+    directional_pairs = directional_pairs or {}
     rows: list[dict[str, object]] = []
-    for left, right in combinations(sorted(frame["condition"].unique()), 2):
-        pivot = frame[frame["condition"].isin([left, right])].pivot_table(
-            index="query_id",
-            columns="condition",
-            values=metric,
-            aggfunc="first",
-        )
-        paired = pivot[[left, right]].dropna()
-        if paired.empty:
+
+    # Group conditions by retriever family; only emit within-family pairs.
+    unique_conditions = sorted(frame["condition"].unique())
+    families: dict[str, list[str]] = {}
+    for condition in unique_conditions:
+        families.setdefault(_retriever_family(condition), []).append(condition)
+
+    for family_name, family_conditions in families.items():
+        family_pairs = list(combinations(family_conditions, 2))
+        num_family_pairs = len(family_pairs)
+        for left, right in family_pairs:
+            alternative: Alternative = directional_pairs.get((left, right), "two-sided")
+            pivot = frame[frame["condition"].isin([left, right])].pivot_table(
+                index="query_id",
+                columns="condition",
+                values=metric,
+                aggfunc="first",
+            )
+            paired = pivot[[left, right]].dropna()
+            if paired.empty:
+                rows.append(
+                    {
+                        "retriever_family": family_name,
+                        "condition_a": left,
+                        "condition_b": right,
+                        "metric": metric,
+                        "alternative": alternative,
+                        "paired_queries": 0,
+                        "mean_delta_b_minus_a": None,
+                        "wilcoxon_statistic": None,
+                        "wilcoxon_p_value": None,
+                        "wilcoxon_bonferroni_p_value": None,
+                        "bonferroni_family_size": num_family_pairs,
+                        "cliffs_delta": None,
+                        "bootstrap_ci_low": None,
+                        "bootstrap_ci_high": None,
+                    }
+                )
+                continue
+
+            baseline = paired[left].to_numpy(dtype=float)
+            treatment = paired[right].to_numpy(dtype=float)
+            delta = treatment - baseline
+            if (delta == 0).all():
+                statistic, p_value = 0.0, 1.0
+            else:
+                statistic, p_value = wilcoxon_signed_rank(
+                    baseline, treatment, alternative=alternative
+                )
+            bonferroni_p = (
+                min(1.0, p_value * num_family_pairs) if apply_bonferroni else p_value
+            )
+            ci_low, ci_high = bootstrap_mean_delta_ci(
+                baseline,
+                treatment,
+                n_resamples=bootstrap_resamples,
+            )
             rows.append(
                 {
+                    "retriever_family": family_name,
                     "condition_a": left,
                     "condition_b": right,
                     "metric": metric,
-                    "paired_queries": 0,
-                    "mean_delta_b_minus_a": None,
-                    "wilcoxon_statistic": None,
-                    "wilcoxon_p_value": None,
-                    "cliffs_delta": None,
-                    "bootstrap_ci_low": None,
-                    "bootstrap_ci_high": None,
+                    "alternative": alternative,
+                    "paired_queries": len(paired),
+                    "mean_delta_b_minus_a": float(delta.mean()),
+                    "wilcoxon_statistic": statistic,
+                    "wilcoxon_p_value": p_value,
+                    "wilcoxon_bonferroni_p_value": bonferroni_p,
+                    "bonferroni_family_size": num_family_pairs,
+                    "cliffs_delta": cliffs_delta(treatment, baseline),
+                    "bootstrap_ci_low": ci_low,
+                    "bootstrap_ci_high": ci_high,
                 }
             )
-            continue
-
-        baseline = paired[left].to_numpy(dtype=float)
-        treatment = paired[right].to_numpy(dtype=float)
-        delta = treatment - baseline
-        if (delta == 0).all():
-            statistic, p_value = 0.0, 1.0
-        else:
-            statistic, p_value = wilcoxon_signed_rank(baseline, treatment)
-        ci_low, ci_high = bootstrap_mean_delta_ci(
-            baseline,
-            treatment,
-            n_resamples=bootstrap_resamples,
-        )
-        rows.append(
-            {
-                "condition_a": left,
-                "condition_b": right,
-                "metric": metric,
-                "paired_queries": len(paired),
-                "mean_delta_b_minus_a": float(delta.mean()),
-                "wilcoxon_statistic": statistic,
-                "wilcoxon_p_value": p_value,
-                "cliffs_delta": cliffs_delta(treatment, baseline),
-                "bootstrap_ci_low": ci_low,
-                "bootstrap_ci_high": ci_high,
-            }
-        )
     return pd.DataFrame(rows)
 
 
@@ -122,7 +199,13 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(summary.to_string(index=False))
     if args.pairwise_output:
-        pairwise = _pairwise(frame, args.metric, bootstrap_resamples=args.bootstrap_resamples)
+        pairwise = _pairwise(
+            frame,
+            args.metric,
+            bootstrap_resamples=args.bootstrap_resamples,
+            directional_pairs=DEFAULT_DIRECTIONAL_PAIRS,
+            apply_bonferroni=True,
+        )
         args.pairwise_output.parent.mkdir(parents=True, exist_ok=True)
         pairwise.to_csv(args.pairwise_output, index=False)
         print(f"Wrote pairwise comparisons to {args.pairwise_output}")

@@ -120,6 +120,11 @@ class RuleBasedNyaResolver:
         for match in WORD_NYA_RE.finditer(text):
             token = match.group(0)
             root = self.remover.filter(token)
+            # Defensive: Sastrawi's bare visitor can return an empty string for very short
+            # inputs. Without this guard a downstream substitution would produce " <antecedent>"
+            # (leading space, empty root) — silent corpus corruption on the full corpus run.
+            if not root.strip():
+                continue
             if root.casefold() not in self.root_dict:
                 continue
             antecedent = self._select_antecedent(text[: match.start()])

@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
+
+# Minimum sample size for Wilcoxon to be meaningfully powered. Smaller N typically
+# means the caller passed aggregated condition means rather than per-query metric vectors;
+# raising here surfaces that mistake fast instead of producing a misleading p-value.
+_WILCOXON_MIN_N = 6
+
+Alternative = Literal["two-sided", "less", "greater"]
 
 
 def cliffs_delta(x: Sequence[float], y: Sequence[float]) -> float:
@@ -55,9 +63,27 @@ def wilcoxon_signed_rank(
     baseline: Sequence[float],
     treatment: Sequence[float],
     *,
-    alternative: str = "two-sided",
+    alternative: Alternative = "two-sided",
 ) -> tuple[float, float]:
-    """Run paired Wilcoxon signed-rank lazily via SciPy."""
+    """Run paired Wilcoxon signed-rank lazily via SciPy.
+
+    ``alternative`` accepts SciPy's standard ``"two-sided" | "less" | "greater"``.
+    The H2 pre-registration calls for one-tailed ``"less"`` (Naive < Keep); callers
+    must pass it explicitly — the function default stays ``"two-sided"`` so generic
+    pairwise comparisons remain conservative.
+
+    Per-query guard: raises ``ValueError`` if either input is shorter than
+    ``_WILCOXON_MIN_N=6`` (a strong heuristic that the caller has aggregated by
+    condition rather than passing per-query metric vectors).
+    """
+
+    if len(baseline) < _WILCOXON_MIN_N or len(treatment) < _WILCOXON_MIN_N:
+        raise ValueError(
+            f"wilcoxon_signed_rank requires per-query metric vectors with N >= "
+            f"{_WILCOXON_MIN_N}; got len(baseline)={len(baseline)}, "
+            f"len(treatment)={len(treatment)}. Did you accidentally pass aggregated "
+            f"condition means instead of per-query metrics?"
+        )
 
     try:
         from scipy.stats import wilcoxon

@@ -15,6 +15,28 @@ KNOWN_ROOT_TOKENS = ["rumahnya", "bukunya", "pidatonya"]
 SMALL_TEST_ROOTS = {"rumah", "buku", "pidato"}
 
 
+class _EmptyReturningRemover:
+    """Test double that simulates the Sastrawi-visitor edge case where remove() returns ''."""
+
+    def filter(self, token: str) -> str:  # noqa: D401 - protocol method
+        return ""
+
+
+def test_resolver_skips_occurrences_with_empty_root():
+    """P1 fix: Sastrawi's visitor can return '' on edge cases; resolver must not emit
+    a malformed ' antecedent' substitution. The whitespace-empty guard in detect() must
+    short-circuit before the dictionary check, otherwise '' ends up substituted with a
+    leading-space artefact (silent corpus corruption on full-corpus runs)."""
+    resolver = RuleBasedNyaResolver(
+        root_dict={"pidato", "", "rumah"},  # include "" to prove guard fires before dict check
+        remover=_EmptyReturningRemover(),
+    )
+    text = "Soekarno datang. Pidatonya menggemparkan."
+    # Pre-fix: resolver would substitute "Pidatonya" with " Soekarno" (leading space, empty root).
+    # Post-fix: empty root short-circuits → no substitution → text unchanged.
+    assert resolver.resolve(text) == text
+
+
 def test_keep_is_identity_with_normalization():
     assert preprocess_keep("rumahnya") == "rumahnya"
 

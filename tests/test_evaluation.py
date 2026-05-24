@@ -82,24 +82,30 @@ def test_evaluate_runs_writes_per_query_metrics_and_summary(tmp_path: Path):
 
 
 def test_analyze_results_writes_summary_and_pairwise_tables(tmp_path: Path):
+    """Smoke test for the analyze_results CLI.
+
+    Uses N=8 queries because the Wilcoxon per-query guard requires N >= 6 to fire,
+    which is the same defensive constraint that protects production analyses from
+    accidentally being run on aggregated condition means.
+    """
     keep = tmp_path / "bm25__keep.csv"
     naive = tmp_path / "bm25__naive_strip.csv"
     summary = tmp_path / "summary.csv"
     pairwise = tmp_path / "pairwise.csv"
 
     header = "query_id,condition,ndcg@1,ndcg@10,recall@10,mrr@100,recall@100\n"
-    keep.write_text(
-        header
-        + "q1,bm25__keep,1.0,0.8,1.0,1.0,1.0\n"
-        + "q2,bm25__keep,0.0,0.5,1.0,0.5,1.0\n",
-        encoding="utf-8",
+    
+    # 8 queries; Keep dominates Naive on every row so the directional one-tailed
+    # ("Naive < Keep") test for the H2 pair has a clear signal.
+    keep_rows = "".join(
+        f"q{i},bm25__keep,1.0,{0.75 + 0.01 * i:.3f},1.0,1.0,1.0\n" for i in range(1, 9)
     )
-    naive.write_text(
-        header
-        + "q1,bm25__naive_strip,0.0,0.3,0.5,0.5,1.0\n"
-        + "q2,bm25__naive_strip,0.0,0.2,0.5,0.0,0.5\n",
-        encoding="utf-8",
+    naive_rows = "".join(
+        f"q{i},bm25__naive_strip,0.0,{0.15 + 0.01 * i:.3f},0.5,0.5,0.75\n"
+        for i in range(1, 9)
     )
+    keep.write_text(header + keep_rows, encoding="utf-8")
+    naive.write_text(header + naive_rows, encoding="utf-8")
 
     exit_code = analyze_results_main(
         [
@@ -119,9 +125,18 @@ def test_analyze_results_writes_summary_and_pairwise_tables(tmp_path: Path):
 
     assert exit_code == 0
     summary_rows = pd.read_csv(summary)
-    assert list(summary_rows["condition"]) == ["bm25__keep", "bm25__naive_strip"]
+    # Order-invariant: keep should outrank naive, but don't assume specific column order
+    assert set(summary_rows["condition"]) == {"bm25__keep", "bm25__naive_strip"}
     pairwise_rows = pd.read_csv(pairwise)
-    assert pairwise_rows.loc[0, "condition_a"] == "bm25__keep"
-    assert pairwise_rows.loc[0, "condition_b"] == "bm25__naive_strip"
-    assert pairwise_rows.loc[0, "paired_queries"] == 2
+    assert len(pairwise_rows) == 1
+    row = pairwise_rows.iloc[0]
+    assert {row["condition_a"], row["condition_b"]} == {"bm25__keep", "bm25__naive_strip"}
+    assert row["paired_queries"] == 8
+
+    # The H2 directional one-tailed alternative should be picked up automatically
+    # via DEFAULT_DIRECTIONAL_PAIRS in analyze_results.
+    assert row["alternative"] == "less"
+    # And Bonferroni column should exist for the retriever family (size 1 pair here).
+    assert row["retriever_family"] == "bm25"
+    assert row["bonferroni_family_size"] == 1
 

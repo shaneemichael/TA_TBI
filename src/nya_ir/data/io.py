@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
@@ -30,11 +31,34 @@ def read_jsonl(path: str | Path) -> Iterator[dict[str, object]]:
 
 
 def write_jsonl(path: str | Path, rows: Iterable[Mapping[str, object]]) -> None:
+    """Write rows to a JSONL file atomically via ``tmp + rename``.
+
+    A direct streamed write can leave a half-written file if the process is killed
+    or the disk fills mid-corpus. Subsequent reads would silently consume the truncated
+    file as if it were complete — a real risk on 1.4M-passage preprocessing runs.
+    Writing to ``<path>.tmp`` first, then ``os.replace()`` makes the final swap atomic
+    on POSIX filesystems: either the destination exists with the full content, or it
+    doesn't exist at all.
+    """
+
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
+    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8") as handle:
+            for row in rows:
+                handle.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, output_path)
+    except BaseException:
+        # Defensive cleanup: if writing failed mid-flight, don't leave the .tmp turd.
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        raise
 
 
 def read_qrels(path: str | Path) -> dict[str, dict[str, int]]:

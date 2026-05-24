@@ -80,15 +80,32 @@ class FaissDenseSearcher:
         self._doc_ids = list(doc_ids)
 
     def search_vector(self, query_vector: np.ndarray, *, top_k: int = 1000) -> list[RetrievalHit]:
-        """Search the FAISS index with a single pre-encoded query vector."""
+        """Search the FAISS index with a single pre-encoded query vector.
+
+        Ranks are derived from the FAISS slot position (1-indexed), NOT from the
+        post-filter loop counter. If FAISS returns sentinel ``-1`` indices for
+        invalid slots (which happens when ``top_k`` > index size, or after
+        deletions), the loop skips them but the surviving hits keep their
+        original rank — preserving the contract that ``rank`` reflects FAISS's
+        own ordering. The previous reindex-on-skip behaviour silently shifted
+        ranks, breaking rank-continuity expectations of downstream trec_eval.
+        """
 
         scores, indices = self._index.search(
             query_vector.reshape(1, -1).astype(np.float32), top_k
         )
         hits: list[RetrievalHit] = []
-        for rank, (score, idx) in enumerate(zip(scores[0], indices[0], strict=False), start=1):
+        for slot_position, (score, idx) in enumerate(
+            zip(scores[0], indices[0], strict=False), start=1
+        ):
             if idx < 0:
                 continue
-            hits.append(RetrievalHit(doc_id=self._doc_ids[int(idx)], score=float(score), rank=rank))
+            hits.append(
+                RetrievalHit(
+                    doc_id=self._doc_ids[int(idx)],
+                    score=float(score),
+                    rank=slot_position,
+                )
+            )
         return hits
 

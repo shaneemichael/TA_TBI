@@ -1,8 +1,19 @@
-"""Prepare MIRACL-id data for one preprocessing strategy."""
+"""Prepare MIRACL-id data for one preprocessing strategy.
+
+Streams rows through ``write_jsonl`` instead of accumulating the entire
+processed corpus in memory first. On the full MIRACL-id corpus this means
+(a) the ``.tmp`` output file grows visibly during the run instead of
+appearing all at once at the end, (b) peak memory is bounded by the
+``write_jsonl`` buffer rather than ~1.5 GB of materialised dicts, and
+(c) tqdm progress bars give per-strategy ETAs so a 30-90 min Sastrawi
+pass on Strategy 3 / Strategy 5 stops looking stuck.
+"""
 
 from __future__ import annotations
 
 import argparse
+import sys
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from nya_ir.data.io import write_jsonl
@@ -20,6 +31,95 @@ def load_root_dict(path: Path | None) -> set[str]:
     if path is None:
         return set()
     return {line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()}
+
+
+def _make_progress(label: str, total: int | None):
+    """Return a tqdm wrapper if available, else a passthrough that logs every 50k rows.
+
+    tqdm comes in transitively via ``datasets`` and ``sentence-transformers`` so
+    in practice the production path always uses it. The fallback exists so the
+    CLI keeps working in a minimal sandbox install that pulled only the hard
+    deps from ``pyproject.toml``.
+    """
+
+    try:
+        from tqdm import tqdm  # type: ignore[import]
+    except ImportError:
+        def _passthrough(iterable):
+            for i, item in enumerate(iterable, start=1):
+                if i % 50_000 == 0:
+                    suffix = f"/{total}" if total else ""
+                    print(f"  {label}: {i}{suffix} rows processed", file=sys.stderr, flush=True)
+                yield item
+
+        return _passthrough
+
+    def _wrap(iterable):
+        return tqdm(iterable, desc=label, unit="row", total=total, dynamic_ncols=True)
+
+    return _wrap
+
+
+def _try_len(source) -> int | None:
+    """``len(source)`` if cheap (HF Dataset, list), else ``None``.
+
+    Used only to feed tqdm's ETA. Counting JSONL lines up front would double-read
+    the file, so we accept "no ETA" in that case.
+    """
+
+    try:
+        return len(source)
+    except TypeError:
+        return None
+
+
+def _process_queries(
+    source: Iterable,
+    *,
+    strategy: StrategyName,
+    root_dict: set[str],
+    remover,
+    limit: int | None,
+) -> Iterator[dict[str, object]]:
+    progress = _make_progress("queries", _try_len(source))
+    for index, query in enumerate(progress(source)):
+        if limit is not None and index >= limit:
+            break
+        yield {
+            "id": query.query_id,
+            "contents": apply_strategy(
+                query.text,
+                strategy,
+                root_dict=root_dict,
+                remover=remover,
+            ),
+        }
+
+
+def _process_corpus(
+    source: Iterable,
+    *,
+    strategy: StrategyName,
+    root_dict: set[str],
+    remover,
+    limit: int | None,
+) -> Iterator[dict[str, object]]:
+    progress = _make_progress("corpus", _try_len(source))
+    for index, passage in enumerate(progress(source)):
+        if limit is not None and index >= limit:
+            break
+        contents = (
+            passage.text if passage.title is None else f"{passage.title}\n{passage.text}"
+        )
+        yield {
+            "id": passage.doc_id,
+            "contents": apply_strategy(
+                contents,
+                strategy,
+                root_dict=root_dict,
+                remover=remover,
+            ),
+        }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,48 +176,34 @@ def main(argv: list[str] | None = None) -> int:
         if args.queries_jsonl is not None
         else load_miracl_queries(split=args.query_split, language=args.language)
     )
-    queries = []
-    for index, query in enumerate(query_source):
-        if args.limit is not None and index >= args.limit:
-            break
-        queries.append(
-            {
-                "id": query.query_id,
-                "contents": apply_strategy(
-                    query.text,
-                    strategy,
-                    root_dict=root_dict,
-                    remover=remover,
-                ),
-            }
-        )
+    write_jsonl(
+        query_path,
+        _process_queries(
+            query_source,
+            strategy=strategy,
+            root_dict=root_dict,
+            remover=remover,
+            limit=args.limit,
+        ),
+    )
+    print(f"Wrote queries to {query_path}")
 
     corpus_source = (
         load_corpus_jsonl(args.corpus_jsonl)
         if args.corpus_jsonl is not None
         else load_miracl_corpus(split=args.corpus_split, language=args.language)
     )
-    passages = []
-    for index, passage in enumerate(corpus_source):
-        if args.limit is not None and index >= args.limit:
-            break
-        contents = passage.text if passage.title is None else f"{passage.title}\n{passage.text}"
-        passages.append(
-            {
-                "id": passage.doc_id,
-                "contents": apply_strategy(
-                    contents,
-                    strategy,
-                    root_dict=root_dict,
-                    remover=remover,
-                ),
-            }
-        )
-
-    write_jsonl(query_path, queries)
-    write_jsonl(corpus_path, passages)
-    print(f"Wrote {len(queries)} queries to {query_path}")
-    print(f"Wrote {len(passages)} passages to {corpus_path}")
+    write_jsonl(
+        corpus_path,
+        _process_corpus(
+            corpus_source,
+            strategy=strategy,
+            root_dict=root_dict,
+            remover=remover,
+            limit=args.limit,
+        ),
+    )
+    print(f"Wrote corpus to {corpus_path}")
     return 0
 
 

@@ -94,6 +94,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Sastrawi root dictionary used by the preprocessing sweep.",
     )
     parser.add_argument(
+        "--sensitivity",
+        type=Path,
+        default=Path("artifacts/sensitivity_annotations.csv"),
+        help=(
+            "Per-query H5 sensitivity annotations CSV (alpha/beta/gamma "
+            "components + tertile). Skipped silently if the file does not "
+            "exist — useful when uploading just the preprocessing outputs."
+        ),
+    )
+    parser.add_argument(
         "--private",
         action="store_true",
         help="Create the repo as private (default: public). Safer during the 4-day sprint.",
@@ -152,9 +162,10 @@ def _build_readme(repo_id: str, processed_dir: Path) -> str:
         "## Layout",
         "",
         "```",
-        "README.md                 (this file)",
-        "root_dict.txt             Sastrawi root dictionary (29,931 entries, Path A)",
-        "qrels/qrels_dev.txt       TREC 4-column qrels extracted from MIRACL dev positives",
+        "README.md                       (this file)",
+        "root_dict.txt                   Sastrawi root dictionary (29,931 entries, Path A)",
+        "sensitivity_annotations.csv     Per-query H5 sensitivity (alpha=1*total + beta=2*anaphoric + gamma=3*entity_ref) + tertile",
+        "qrels/qrels_dev.txt             TREC 4-column qrels extracted from MIRACL dev positives",
     ]
     for strategy in STRATEGIES:
         queries = processed_dir / strategy / "queries_dev.jsonl"
@@ -200,12 +211,25 @@ def _count_lines(path: Path) -> int:
         return sum(1 for _ in handle)
 
 
-def _stage(processed_dir: Path, root_dict: Path, staging_dir: Path) -> None:
+def _stage(
+    processed_dir: Path,
+    root_dict: Path,
+    staging_dir: Path,
+    *,
+    sensitivity: Path | None = None,
+) -> None:
     """Copy the files we want on the Hub into ``staging_dir`` with the desired layout."""
     staging_dir.mkdir(parents=True, exist_ok=True)
 
     # root_dict at top level
     shutil.copy2(root_dict, staging_dir / "root_dict.txt")
+
+    # Sensitivity annotations at top level next to root_dict, since both are
+    # methodology artifacts that travel with the data rather than data per se.
+    # Optional — Person A's pipeline produces it in step A-7 but earlier uploads
+    # may pre-date it; skip silently if the file does not exist.
+    if sensitivity is not None and sensitivity.exists():
+        shutil.copy2(sensitivity, staging_dir / "sensitivity_annotations.csv")
 
     # qrels under qrels/
     qrels_src = processed_dir / "qrels_dev.txt"
@@ -252,7 +276,12 @@ def main(argv: list[str] | None = None) -> int:
 
     with tempfile.TemporaryDirectory(prefix="nya_hf_upload_") as tmp:
         staging_dir = Path(tmp)
-        _stage(args.processed_dir, args.root_dict, staging_dir)
+        _stage(
+            args.processed_dir,
+            args.root_dict,
+            staging_dir,
+            sensitivity=args.sensitivity,
+        )
         (staging_dir / "README.md").write_text(
             _build_readme(args.repo_id, args.processed_dir), encoding="utf-8"
         )

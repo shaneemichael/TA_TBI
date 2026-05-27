@@ -8,6 +8,13 @@ from pathlib import Path
 
 from nya_ir.experiment import RetrieverName
 from nya_ir.retrieval.bm25 import build_pyserini_index
+from nya_ir.retrieval.dense import (
+    DEFAULT_BGE_M3_MAX_LENGTH,
+    DEFAULT_BGE_M3_MODEL,
+    DEFAULT_EF_CONSTRUCTION,
+    DEFAULT_EF_SEARCH,
+    DEFAULT_HNSW_M,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -16,6 +23,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--collection-dir", type=Path, required=True)
     parser.add_argument("--index-dir", type=Path, required=True)
     parser.add_argument("--threads", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--model-name", default=DEFAULT_BGE_M3_MODEL)
+    parser.add_argument("--max-length", type=int, default=DEFAULT_BGE_M3_MAX_LENGTH)
+    parser.add_argument("--hnsw-m", type=int, default=DEFAULT_HNSW_M)
+    parser.add_argument("--ef-construction", type=int, default=DEFAULT_EF_CONSTRUCTION)
+    parser.add_argument("--ef-search", type=int, default=DEFAULT_EF_SEARCH)
+    parser.add_argument(
+        "--show-progress",
+        action="store_true",
+        help="Show per-batch encoder progress bars for dense indexing.",
+    )
     parser.add_argument(
         "--language",
         default="id",
@@ -50,12 +68,41 @@ def main(argv: list[str] | None = None) -> int:
             return subprocess.run(command, check=False).returncode
         return 0
 
-    # Non-BM25 path: explicit not-implemented exit so callers see a non-zero status
-    # rather than a silent success that produces no index.
-    raise SystemExit(
-        "Dense indexing (BGE-m3 + FAISS HNSW) is scaffolded only. "
-        "See nya_ir.retrieval.dense for the implementation stage."
-    )
+    if retriever is RetrieverName.BGE_M3:
+        if not args.collection_dir.exists():
+            raise SystemExit(f"Collection path not found: {args.collection_dir}")
+        plan = (
+            "BGE-m3 FAISS HNSW index: "
+            f"collection={args.collection_dir} index_dir={args.index_dir} "
+            f"model={args.model_name} max_length={args.max_length} "
+            f"batch_size={args.batch_size} hnsw_m={args.hnsw_m} "
+            f"ef_construction={args.ef_construction} ef_search={args.ef_search}"
+        )
+        print(plan)
+        if not args.execute:
+            return 0
+
+        from nya_ir.retrieval.dense import build_faiss_hnsw_index
+
+        result = build_faiss_hnsw_index(
+            args.collection_dir,
+            args.index_dir,
+            model_name=args.model_name,
+            max_length=args.max_length,
+            batch_size=args.batch_size,
+            hnsw_m=args.hnsw_m,
+            ef_construction=args.ef_construction,
+            ef_search=args.ef_search,
+            threads=args.threads,
+            show_progress_bar=args.show_progress,
+        )
+        print(
+            f"Wrote dense index with {result.num_docs} docs, "
+            f"dim={result.dimension} to {result.index_path}"
+        )
+        return 0
+
+    raise SystemExit(f"Unsupported retriever: {retriever.value}")
 
 
 if __name__ == "__main__":

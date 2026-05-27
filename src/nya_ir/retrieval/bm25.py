@@ -13,7 +13,9 @@ class PyseriniBM25Searcher:
 
     Conforms to the :class:`nya_ir.retrieval.base.Retriever` protocol.
     BM25 parameters are applied at construction so callers cannot forget to call
-    ``set_bm25`` before ``search``.
+    ``set_bm25`` before ``search``. The language is also applied at construction so
+    the analyzer used at query time matches the one used at indexing time --- a
+    mismatch silently drops the nDCG@10 by several points without any warning.
     """
 
     def __init__(
@@ -22,6 +24,7 @@ class PyseriniBM25Searcher:
         *,
         k1: float = 0.9,
         b: float = 0.4,
+        language: str = "id",
     ) -> None:
         try:
             # pyrefly: ignore[missing-import]  # optional dep; raised cleanly below
@@ -30,8 +33,13 @@ class PyseriniBM25Searcher:
             raise OptionalDependencyError("pyserini", "bm25") from exc
         self._searcher = LuceneSearcher(str(index_dir))
         self._searcher.set_bm25(k1=k1, b=b)
+        # MUST match the --language used during build_pyserini_index. With the wrong
+        # analyzer Lucene applies English Porter stemming + English stopwords to
+        # Indonesian text, costing ~5 nDCG@10 points vs the published MIRACL baseline.
+        self._searcher.set_language(language)
         self.k1 = k1
         self.b = b
+        self.language = language
 
     def set_bm25(self, *, k1: float = 0.9, b: float = 0.4) -> None:
         """Re-tune BM25 parameters after construction."""
@@ -54,6 +62,7 @@ def build_pyserini_index(
     index_dir: str | Path,
     generator: str = "DefaultLuceneDocumentGenerator",
     threads: int = 8,
+    language: str = "id",
 ) -> list[str]:
     """Return the pyserini command needed to build an index.
 
@@ -63,6 +72,11 @@ def build_pyserini_index(
     ``collection_dir`` is expected to be a directory of ``JsonCollection`` JSONL files
     (one document per line, each with ``id`` and ``contents`` keys); the prepared
     output of :mod:`nya_ir.cli.prepare_miracl` satisfies this contract.
+
+    ``language`` is the Anserini language code (default ``"id"`` for Indonesian).
+    Without it, Anserini defaults to ``DefaultEnglishAnalyzer`` with Porter stemming,
+    which silently mangles Indonesian tokens and costs roughly 5 nDCG@10 points
+    against the published MIRACL baseline. Match this between indexing and search.
     """
 
     return [
@@ -79,6 +93,8 @@ def build_pyserini_index(
         generator,
         "--threads",
         str(threads),
+        "--language",
+        language,
         "--storePositions",
         "--storeDocvectors",
         "--storeRaw",

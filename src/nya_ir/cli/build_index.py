@@ -17,6 +17,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--index-dir", type=Path, required=True)
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument(
+        "--language",
+        default="id",
+        help=(
+            "Anserini language code for the analyzer (default: id). "
+            "Must match the language used at search time."
+        ),
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
         help="Actually run the indexing command (default: dry-run, print only).",
@@ -34,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
             collection_dir=args.collection_dir,
             index_dir=args.index_dir,
             threads=args.threads,
+            language=args.language,
         )
         print(" ".join(command))
         if args.execute:

@@ -59,6 +59,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hits", type=int, default=1000)
     parser.add_argument("--k1", type=float, default=0.9)
     parser.add_argument("--b", type=float, default=0.4)
+    parser.add_argument(
+        "--language",
+        default="id",
+        help=(
+            "Anserini language code for the analyzer (default: id). "
+            "Must match the language used when the index was built."
+        ),
+    )
     return parser
 
 
@@ -67,7 +75,9 @@ def _build_searcher(args: argparse.Namespace) -> Retriever:
     if retriever is RetrieverName.BM25:
         from nya_ir.retrieval.bm25 import PyseriniBM25Searcher
 
-        return PyseriniBM25Searcher(args.index_dir, k1=args.k1, b=args.b)
+        return PyseriniBM25Searcher(
+            args.index_dir, k1=args.k1, b=args.b, language=args.language
+        )
     raise SystemExit(
         f"Retriever {retriever.value!r} is scaffolded but not yet wired into this CLI."
     )

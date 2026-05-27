@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--show-progress",
         action="store_true",
-        help="Show per-batch encoder progress bars for dense indexing.",
+        help="Show dense indexing progress with a single docs/second + ETA indicator.",
     )
     parser.add_argument(
         "--language",

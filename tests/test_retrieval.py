@@ -24,6 +24,7 @@ from nya_ir.retrieval.dense import (
     DEFAULT_BGE_M3_MAX_LENGTH,
     DenseIndexBuildResult,
     FlagEmbeddingEncoder,
+    count_corpus_rows,
     default_single_device,
     iter_corpus_jsonl,
     l2_normalize,
@@ -314,6 +315,16 @@ def test_iter_corpus_jsonl_accepts_file_or_directory(tmp_path: Path) -> None:
     assert list(iter_corpus_jsonl(tmp_path)) == [("d1", "satu"), ("d2", "dua")]
 
 
+def test_count_corpus_rows_counts_non_empty_lines_in_file_and_directory(tmp_path: Path) -> None:
+    one = tmp_path / "one.jsonl"
+    two = tmp_path / "two.jsonl"
+    one.write_text('{"id":"d1","contents":"satu"}\n\n{"id":"d2","contents":"dua"}\n', encoding="utf-8")
+    two.write_text('\n{"id":"d3","contents":"tiga"}\n', encoding="utf-8")
+
+    assert count_corpus_rows(one) == 2
+    assert count_corpus_rows(tmp_path) == 3
+
+
 def test_parse_devices_handles_none_and_csv_strings() -> None:
     assert parse_devices(None) is None
     assert parse_devices("cuda:0,cuda:1") == ["cuda:0", "cuda:1"]
@@ -397,3 +408,24 @@ def test_flag_embedding_encoder_returns_dense_float32_embeddings(
         "return_sparse": False,
         "return_colbert_vecs": False,
     }
+
+
+def test_flag_embedding_encoder_hides_model_stdout_when_progress_hidden(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class FakeModel:
+        def __init__(self, *_args, **_kwargs) -> None:
+            return
+
+        def encode(self, _texts, **_kwargs):
+            print("Chunks: noisy progress")
+            return {"dense_vecs": [[1.0, 0.0]]}
+
+    monkeypatch.setitem(sys.modules, "FlagEmbedding", types.SimpleNamespace(BGEM3FlagModel=FakeModel))
+
+    encoder = FlagEmbeddingEncoder()
+    encoder.encode(["foo"], show_progress_bar=False)
+    captured = capsys.readouterr()
+
+    assert captured.out == ""

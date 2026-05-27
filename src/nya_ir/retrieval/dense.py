@@ -9,7 +9,10 @@ matrix in memory.
 from __future__ import annotations
 
 import json
+import os
+import time
 from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,6 +45,90 @@ class DenseIndexBuildResult:
     metadata_path: Path
     num_docs: int
     dimension: int
+
+
+@contextmanager
+def _suppress_output(enabled: bool) -> Iterator[None]:
+    if not enabled:
+        yield
+        return
+    with open(os.devnull, "w", encoding="utf-8") as sink:
+        with redirect_stdout(sink), redirect_stderr(sink):
+            yield
+
+
+def count_corpus_rows(path: str | Path) -> int:
+    """Count non-empty JSONL rows in one file or a directory of JSONLs."""
+
+    input_path = Path(path)
+    paths = sorted(input_path.glob("*.jsonl")) if input_path.is_dir() else [input_path]
+    count = 0
+    for jsonl_path in paths:
+        with jsonl_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    count += 1
+    return count
+
+
+def _format_eta(seconds: float | None) -> str:
+    if seconds is None or seconds < 0:
+        return "--:--"
+    total = int(seconds)
+    minutes, secs = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours > 0:
+        return f"{hours:d}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+class _NoOpProgress:
+    def update(self, _amount: int) -> None:
+        return
+
+    def close(self) -> None:
+        return
+
+
+class _ConsoleProgress:
+    def __init__(self, total_docs: int) -> None:
+        self.total_docs = max(total_docs, 1)
+        self.done_docs = 0
+        self._started_at = time.monotonic()
+        self._last_emit = 0.0
+
+    def update(self, amount: int) -> None:
+        self.done_docs += amount
+        now = time.monotonic()
+        if now - self._last_emit < 1.0 and self.done_docs < self.total_docs:
+            return
+        elapsed = max(now - self._started_at, 1e-6)
+        rate = self.done_docs / elapsed
+        remaining = max(self.total_docs - self.done_docs, 0)
+        eta = remaining / rate if rate > 0 else None
+        print(
+            "\r"
+            f"  dense indexing: {self.done_docs:,}/{self.total_docs:,} docs "
+            f"| {rate:,.1f} docs/s | ETA {_format_eta(eta)}",
+            end="",
+            flush=True,
+        )
+        self._last_emit = now
+
+    def close(self) -> None:
+        self.update(0)
+        print("", flush=True)
+
+
+def _make_index_progress(total_docs: int, enabled: bool):
+    if not enabled:
+        return _NoOpProgress()
+    try:
+        # pyrefly: ignore[missing-import]  # optional dep in minimal installs
+        from tqdm import tqdm
+    except ImportError:
+        return _ConsoleProgress(total_docs)
+    return tqdm(total=total_docs, desc="dense indexing", unit="doc", dynamic_ncols=True)
 
 
 def parse_devices(raw_devices: str | Sequence[str] | None) -> list[str] | None:
@@ -110,15 +197,15 @@ class FlagEmbeddingEncoder:
     ) -> np.ndarray:
         """Encode ``texts`` into an ``(N, D)`` float32 matrix of L2-normalised vectors."""
 
-        output = self.model.encode(
-            list(texts),
-            batch_size=batch_size,
-            max_length=self.max_length,
-            return_dense=True,
-            return_sparse=False,
-            return_colbert_vecs=False,
-        )
-        _ = show_progress_bar  # FlagEmbedding handles its own progress behavior.
+        with _suppress_output(enabled=not show_progress_bar):
+            output = self.model.encode(
+                list(texts),
+                batch_size=batch_size,
+                max_length=self.max_length,
+                return_dense=True,
+                return_sparse=False,
+                return_colbert_vecs=False,
+            )
         vectors = output["dense_vecs"]
         return l2_normalize(np.asarray(vectors, dtype=np.float32))
 
@@ -239,40 +326,42 @@ def build_faiss_hnsw_index(
     index = None
     dimension = 0
     num_docs = 0
+    total_docs = count_corpus_rows(input_path) if show_progress_bar else 0
+    progress = _make_index_progress(total_docs, show_progress_bar)
 
-    with doc_ids_path.open("w", encoding="utf-8") as doc_id_handle:
-        for batch_index, batch in enumerate(
-            _batched(iter_corpus_jsonl(input_path), batch_size),
-            start=1,
-        ):
-            doc_ids = [doc_id for doc_id, _contents in batch]
-            texts = [contents for _doc_id, contents in batch]
-            vectors = active_encoder.encode(
-                texts,
-                batch_size=batch_size,
-                show_progress_bar=False,
-            )
-            vectors = np.ascontiguousarray(l2_normalize(vectors), dtype=np.float32)
-            if vectors.ndim != 2 or vectors.shape[0] != len(batch):
-                raise ValueError(
-                    "Encoder returned an invalid shape: "
-                    f"expected ({len(batch)}, dim), got {vectors.shape}"
+    try:
+        with doc_ids_path.open("w", encoding="utf-8") as doc_id_handle:
+            for batch in _batched(iter_corpus_jsonl(input_path), batch_size):
+                doc_ids = [doc_id for doc_id, _contents in batch]
+                texts = [contents for _doc_id, contents in batch]
+                vectors = active_encoder.encode(
+                    texts,
+                    batch_size=batch_size,
+                    show_progress_bar=False,
                 )
-            if index is None:
-                dimension = int(vectors.shape[1])
-                index = faiss.IndexHNSWFlat(dimension, hnsw_m, faiss.METRIC_INNER_PRODUCT)
-                index.hnsw.efConstruction = ef_construction
-                index.hnsw.efSearch = ef_search
-            elif vectors.shape[1] != dimension:
-                raise ValueError(
-                    f"Encoder dimension changed from {dimension} to {vectors.shape[1]}"
-                )
-            index.add(vectors)
-            for doc_id in doc_ids:
-                doc_id_handle.write(doc_id + "\n")
-            num_docs += len(batch)
-            if show_progress_bar and batch_index % 100 == 0:
-                print(f"  dense indexing: {num_docs:,} docs encoded", flush=True)
+                vectors = np.ascontiguousarray(l2_normalize(vectors), dtype=np.float32)
+                if vectors.ndim != 2 or vectors.shape[0] != len(batch):
+                    raise ValueError(
+                        "Encoder returned an invalid shape: "
+                        f"expected ({len(batch)}, dim), got {vectors.shape}"
+                    )
+                if index is None:
+                    dimension = int(vectors.shape[1])
+                    index = faiss.IndexHNSWFlat(dimension, hnsw_m, faiss.METRIC_INNER_PRODUCT)
+                    index.hnsw.efConstruction = ef_construction
+                    index.hnsw.efSearch = ef_search
+                elif vectors.shape[1] != dimension:
+                    raise ValueError(
+                        f"Encoder dimension changed from {dimension} to {vectors.shape[1]}"
+                    )
+                index.add(vectors)
+                for doc_id in doc_ids:
+                    doc_id_handle.write(doc_id + "\n")
+                batch_size_done = len(batch)
+                num_docs += batch_size_done
+                progress.update(batch_size_done)
+    finally:
+        progress.close()
 
     if index is None or num_docs == 0:
         raise ValueError(f"No corpus rows found in {input_path}")

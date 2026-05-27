@@ -70,7 +70,8 @@ artifacts/indexes/
 results/raw/
 results/indexes/
 results/runs/
-results/metrics/
+# results/metrics/ is intentionally NOT ignored — per-query CSVs are small
+# (~60 KB each) deliverables that Person D's stats consume.
 *.faiss
 *.bin
 *.pkl

@@ -71,6 +71,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hits", type=int, default=1000)
     parser.add_argument("--k1", type=float, default=0.9)
     parser.add_argument("--b", type=float, default=0.4)
+    parser.add_argument(
+        "--language",
+        default="id",
+        help=(
+            "Anserini language code threaded into both build_index and run_retrieval "
+            "(default: id). Forgetting this drops nDCG@10 by ~5 points because "
+            "Pyserini falls back to English Porter stemming on Indonesian text."
+        ),
+    )
 
     parser.add_argument(
         "--reference-ndcg10",
@@ -174,6 +183,7 @@ def _run_condition(strategy: str, args: argparse.Namespace) -> Path:
             "--collection-dir", str(paths["staging_dir"]),
             "--index-dir", str(paths["index_dir"]),
             "--threads", str(args.threads),
+            "--language", args.language,
             "--execute",
         ]
     )
@@ -190,6 +200,7 @@ def _run_condition(strategy: str, args: argparse.Namespace) -> Path:
             "--hits", str(args.hits),
             "--k1", str(args.k1),
             "--b", str(args.b),
+            "--language", args.language,
         ]
     )
 

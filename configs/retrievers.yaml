@@ -8,8 +8,7 @@ retrievers:
     backend: faiss
     model_name: BAAI/bge-m3
     mode: dense
-    max_length: 512
+    max_length: 8192
     hnsw_m: 32
     ef_construction: 200
     hits: 1000
-

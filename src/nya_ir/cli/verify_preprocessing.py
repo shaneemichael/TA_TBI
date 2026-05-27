@@ -24,7 +24,18 @@ from nya_ir.preprocessing import (
 )
 
 # --- Single-token canonical cases (Phase 1 false-positive + known-root coverage) ---
-FALSE_POSITIVES = ["punya", "tanya", "hanya", "biasanya", "Kenya", "Sonya", "Tanya"]
+# Hard false positives: words ending in -nya that are NOT -nya constructions
+# at all. These are root words (or proper nouns / loanwords) that happen to
+# end in the letters "nya". Any sensible dictionary-guarded strategy must
+# preserve them.
+#
+# NOT in this list: borderline adverbial -nya forms like biasanya, karenanya,
+# tahunya. Linguistically these ARE -nya constructions (biasa + -nya → "usually");
+# Sastrawi correctly strips them under Path A because their roots are in the
+# dictionary. We document this as intended Strategy 3 behaviour in
+# test_path_a_dictionary_strips_biasanya rather than treating it as a
+# false-positive failure here.
+FALSE_POSITIVES = ["punya", "tanya", "hanya", "Kenya", "Sonya", "Tanya"]
 POSITIVE_EXAMPLES = ["rumahnya", "bukunya", "pidatonya"]
 
 # --- Multi-sentence anaphoric examples (Strategy 5 territory) ---

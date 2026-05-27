@@ -10,7 +10,11 @@ from nya_ir.preprocessing import (
 )
 
 
-FALSE_POSITIVES = ["punya", "tanya", "hanya", "biasanya", "Kenya", "Sonya", "Tanya"]
+# Hard false positives: words ending in -nya that are NOT -nya constructions
+# at all (root words + proper nouns / loanwords). Borderline adverbial forms
+# like biasanya are pinned separately in test_path_a_dictionary_strips_biasanya
+# because their behaviour depends on whether the root is in the dictionary.
+FALSE_POSITIVES = ["punya", "tanya", "hanya", "Kenya", "Sonya", "Tanya"]
 KNOWN_ROOT_TOKENS = ["rumahnya", "bukunya", "pidatonya"]
 SMALL_TEST_ROOTS = {"rumah", "buku", "pidato"}
 

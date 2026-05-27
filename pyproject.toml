@@ -30,7 +30,12 @@ preprocessing = [
     "PySastrawi>=1.2",
     "stanza>=1.8",
 ]
-data = ["datasets>=2.19"]
+# Pin datasets<4.0: MIRACL is a script-based dataset (miracl.py loader) and
+# datasets>=4.0 removed script-based loading entirely. The error message that
+# surfaces ("remove trust_remote_code") is misleading — the flag was the gate
+# for the deleted feature, not the cause. Lift the upper bound only after
+# MIRACL is re-published as Parquet or we migrate to direct hf_hub_download.
+data = ["datasets>=2.19,<4.0"]
 eval = ["pytrec-eval>=0.5"]
 dev = [
     "pytest>=8.0",
@@ -43,7 +48,7 @@ all = [
     "torch>=2.2",
     "PySastrawi>=1.2",
     "stanza>=1.8",
-    "datasets>=2.19",
+    "datasets>=2.19,<4.0",  # see [data] above — MIRACL is script-based, datasets>=4.0 removed scripts
     "pytrec-eval>=0.5",
     "pytest>=8.0",
     "ruff>=0.5",
@@ -52,6 +57,8 @@ all = [
 [project.scripts]
 nya-verify-preprocessing = "nya_ir.cli.verify_preprocessing:main"
 nya-prepare-miracl = "nya_ir.cli.prepare_miracl:main"
+nya-extract-qrels = "nya_ir.cli.extract_qrels:main"
+nya-score-sensitivity = "nya_ir.cli.score_sensitivity:main"
 nya-build-index = "nya_ir.cli.build_index:main"
 nya-run-retrieval = "nya_ir.cli.run_retrieval:main"
 nya-evaluate-runs = "nya_ir.cli.evaluate_runs:main"

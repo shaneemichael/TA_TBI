@@ -201,9 +201,9 @@ python scripts/build_index.py \
 ```
 
 The CLI scripts never download MIRACL, build indexes, or run retrieval at import
-time. Heavy dependencies such as Pyserini, FAISS, sentence-transformers,
-PySastrawi, Stanza, and Hugging Face `datasets` are loaded only inside the
-specific adapter or command that needs them.
+time. Heavy dependencies such as Pyserini, FAISS, FlagEmbedding, PySastrawi,
+Stanza, and Hugging Face `datasets` are loaded only inside the specific adapter
+or command that needs them.
 
 ## Working in branches
 

@@ -36,7 +36,7 @@ def load_root_dict(path: Path | None) -> set[str]:
 def _make_progress(label: str, total: int | None):
     """Return a tqdm wrapper if available, else a passthrough that logs every 50k rows.
 
-    tqdm comes in transitively via ``datasets`` and ``sentence-transformers`` so
+    tqdm comes in transitively via ``datasets`` and the FlagEmbedding stack so
     in practice the production path always uses it. The fallback exists so the
     CLI keeps working in a minimal sandbox install that pulled only the hard
     deps from ``pyproject.toml``.

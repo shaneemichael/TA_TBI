@@ -26,6 +26,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--model-name", default=DEFAULT_BGE_M3_MODEL)
     parser.add_argument("--max-length", type=int, default=DEFAULT_BGE_M3_MAX_LENGTH)
+    parser.add_argument(
+        "--devices",
+        help=(
+            "Comma-separated dense encoding devices for FlagEmbedding, e.g. "
+            "'cuda:0', 'cuda:0,cuda:1', or 'cpu'. Omit to use library defaults."
+        ),
+    )
     parser.add_argument("--hnsw-m", type=int, default=DEFAULT_HNSW_M)
     parser.add_argument("--ef-construction", type=int, default=DEFAULT_EF_CONSTRUCTION)
     parser.add_argument("--ef-search", type=int, default=DEFAULT_EF_SEARCH)
@@ -75,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
             "BGE-m3 FAISS HNSW index: "
             f"collection={args.collection_dir} index_dir={args.index_dir} "
             f"model={args.model_name} max_length={args.max_length} "
+            f"devices={args.devices or 'auto'} "
             f"batch_size={args.batch_size} hnsw_m={args.hnsw_m} "
             f"ef_construction={args.ef_construction} ef_search={args.ef_search}"
         )
@@ -89,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
             args.index_dir,
             model_name=args.model_name,
             max_length=args.max_length,
+            devices=args.devices,
             batch_size=args.batch_size,
             hnsw_m=args.hnsw_m,
             ef_construction=args.ef_construction,
@@ -107,4 +116,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

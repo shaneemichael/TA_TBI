@@ -6,6 +6,8 @@ the queries -> run-file path can be exercised in pure Python.
 
 from __future__ import annotations
 
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -15,12 +17,17 @@ from nya_ir.cli.build_index import build_parser as build_index_parser
 from nya_ir.cli.build_index import main as build_index_main
 from nya_ir.cli.run_retrieval import iter_query_jsonl, run_searches
 from nya_ir.data.io import read_trec_run, write_jsonl
+from nya_ir.exceptions import OptionalDependencyError
 from nya_ir.retrieval.base import RetrievalHit
 from nya_ir.retrieval.bm25 import build_pyserini_index
 from nya_ir.retrieval.dense import (
     DEFAULT_BGE_M3_MAX_LENGTH,
+    DenseIndexBuildResult,
+    FlagEmbeddingEncoder,
+    default_single_device,
     iter_corpus_jsonl,
     l2_normalize,
+    parse_devices,
     read_doc_ids,
     write_doc_ids,
 )
@@ -206,6 +213,32 @@ def test_build_index_cli_dry_runs_dense_with_published_max_length(
     assert "BGE-m3 FAISS HNSW index" in captured.out
     assert "model=BAAI/bge-m3" in captured.out
     assert f"max_length={DEFAULT_BGE_M3_MAX_LENGTH}" in captured.out
+    assert "devices=auto" in captured.out
+
+
+def test_build_index_cli_dry_runs_dense_with_explicit_devices(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    corpus = tmp_path / "corpus.jsonl"
+    write_jsonl(corpus, [{"id": "d1", "contents": "Pidatonya terkenal."}])
+
+    exit_code = build_index_main(
+        [
+            "--retriever",
+            "bge_m3",
+            "--collection-dir",
+            str(corpus),
+            "--index-dir",
+            str(tmp_path / "index"),
+            "--devices",
+            "cuda:0,cuda:1",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "devices=cuda:0,cuda:1" in captured.out
 
 
 def test_build_index_parser_accepts_both_retriever_choices() -> None:
@@ -214,6 +247,45 @@ def test_build_index_parser_accepts_both_retriever_choices() -> None:
     parser.parse_args(["--retriever", "bm25", "--collection-dir", ".", "--index-dir", "."])
     args = parser.parse_args(["--retriever", "bge_m3", "--collection-dir", ".", "--index-dir", "."])
     assert args.max_length == DEFAULT_BGE_M3_MAX_LENGTH
+    assert args.devices is None
+
+
+def test_build_index_cli_passes_devices_to_dense_builder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus = tmp_path / "corpus.jsonl"
+    write_jsonl(corpus, [{"id": "d1", "contents": "Pidatonya terkenal."}])
+    captured: dict[str, object] = {}
+
+    def fake_build_faiss_hnsw_index(*args, **kwargs):
+        captured["devices"] = kwargs["devices"]
+        return DenseIndexBuildResult(
+            index_path=tmp_path / "index" / "index.faiss",
+            doc_ids_path=tmp_path / "index" / "doc_ids.txt",
+            metadata_path=tmp_path / "index" / "metadata.json",
+            num_docs=1,
+            dimension=1024,
+        )
+
+    monkeypatch.setattr("nya_ir.retrieval.dense.build_faiss_hnsw_index", fake_build_faiss_hnsw_index)
+
+    exit_code = build_index_main(
+        [
+            "--retriever",
+            "bge_m3",
+            "--collection-dir",
+            str(corpus),
+            "--index-dir",
+            str(tmp_path / "index"),
+            "--devices",
+            "cuda:0,cuda:1",
+            "--execute",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["devices"] == "cuda:0,cuda:1"
 
 
 def test_dense_doc_ids_roundtrip(tmp_path: Path) -> None:
@@ -240,3 +312,88 @@ def test_iter_corpus_jsonl_accepts_file_or_directory(tmp_path: Path) -> None:
 
     assert list(iter_corpus_jsonl(one)) == [("d1", "satu")]
     assert list(iter_corpus_jsonl(tmp_path)) == [("d1", "satu"), ("d2", "dua")]
+
+
+def test_parse_devices_handles_none_and_csv_strings() -> None:
+    assert parse_devices(None) is None
+    assert parse_devices("cuda:0,cuda:1") == ["cuda:0", "cuda:1"]
+    assert parse_devices(" cpu ") == ["cpu"]
+    assert parse_devices(["cuda:0", " cuda:1 "]) == ["cuda:0", "cuda:1"]
+
+
+def test_default_single_device_prefers_first_cuda(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_torch = types.SimpleNamespace(cuda=types.SimpleNamespace(is_available=lambda: True))
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+
+    assert default_single_device() == ["cuda:0"]
+
+
+def test_default_single_device_falls_back_to_cpu(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_torch = types.SimpleNamespace(cuda=types.SimpleNamespace(is_available=lambda: False))
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+
+    assert default_single_device() == ["cpu"]
+
+
+def test_flag_embedding_encoder_raises_clean_optional_dependency_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delitem(sys.modules, "FlagEmbedding", raising=False)
+
+    real_import = __import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "FlagEmbedding":
+            raise ImportError("missing FlagEmbedding")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fake_import)
+
+    with pytest.raises(OptionalDependencyError) as excinfo:
+        FlagEmbeddingEncoder()
+
+    assert excinfo.value.package == "FlagEmbedding"
+    assert excinfo.value.extra == "dense"
+
+
+def test_flag_embedding_encoder_returns_dense_float32_embeddings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeModel:
+        def __init__(self, model_name: str, **kwargs) -> None:
+            captured["model_name"] = model_name
+            captured["init_kwargs"] = kwargs
+
+        def encode(self, texts, **kwargs):
+            captured["texts"] = list(texts)
+            captured["encode_kwargs"] = kwargs
+            return {"dense_vecs": [[3.0, 4.0], [0.0, 0.0]]}
+
+    monkeypatch.setitem(sys.modules, "FlagEmbedding", types.SimpleNamespace(BGEM3FlagModel=FakeModel))
+
+    encoder = FlagEmbeddingEncoder(
+        model_name="BAAI/bge-m3",
+        max_length=256,
+        devices=["cuda:0", "cuda:1"],
+    )
+    vectors = encoder.encode(["foo", "bar"], batch_size=7, show_progress_bar=True)
+
+    assert vectors.dtype == np.float32
+    assert vectors.tolist() == pytest.approx([[0.6, 0.8], [0.0, 0.0]])
+    assert captured["model_name"] == "BAAI/bge-m3"
+    assert captured["texts"] == ["foo", "bar"]
+    assert captured["init_kwargs"] == {
+        "use_fp16": True,
+        "devices": ["cuda:0", "cuda:1"],
+        "query_max_length": 256,
+        "passage_max_length": 256,
+    }
+    assert captured["encode_kwargs"] == {
+        "batch_size": 7,
+        "max_length": 256,
+        "return_dense": True,
+        "return_sparse": False,
+        "return_colbert_vecs": False,
+    }

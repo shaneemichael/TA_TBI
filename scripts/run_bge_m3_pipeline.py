@@ -59,7 +59,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--model-name", default="BAAI/bge-m3")
-    parser.add_argument("--max-length", type=int, default=8192)
+    parser.add_argument("--max-length", type=int, default=512)
+    parser.add_argument(
+        "--devices",
+        help=(
+            "Comma-separated dense encoding devices for indexing, e.g. "
+            "'cuda:0,cuda:1'. Omit to use library defaults."
+        ),
+    )
     parser.add_argument("--hnsw-m", type=int, default=32)
     parser.add_argument("--ef-construction", type=int, default=200)
     parser.add_argument("--ef-search", type=int, default=1000)
@@ -145,6 +152,7 @@ def _run_condition(strategy: str, args: argparse.Namespace) -> Path:
             args.model_name,
             "--max-length",
             str(args.max_length),
+            *([] if not args.devices else ["--devices", args.devices]),
             "--hnsw-m",
             str(args.hnsw_m),
             "--ef-construction",

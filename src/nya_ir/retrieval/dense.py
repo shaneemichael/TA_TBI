@@ -1,8 +1,9 @@
 """Dense BGE-m3 + FAISS HNSW adapters.
 
-The production path streams corpus rows in batches, encodes them with BGE-M3,
-adds vectors directly to a FAISS HNSW index, and writes a parallel ``doc_ids``
-file. This avoids holding the full MIRACL-id embedding matrix in memory.
+The production path streams corpus rows in batches, encodes them with BGE-M3
+via FlagEmbedding, adds vectors directly to a FAISS HNSW index, and writes a
+parallel ``doc_ids`` file. This avoids holding the full MIRACL-id embedding
+matrix in memory.
 """
 
 from __future__ import annotations
@@ -43,11 +44,37 @@ class DenseIndexBuildResult:
     dimension: int
 
 
-class SentenceTransformerEncoder:
-    """Lazy sentence-transformers encoder wrapper.
+def parse_devices(raw_devices: str | Sequence[str] | None) -> list[str] | None:
+    """Parse a dense-device specification into a clean list of device strings."""
 
-    The HuggingFace model is loaded on construction. Embeddings are L2-normalised
-    so that inner-product FAISS indexes behave as cosine-similarity searchers.
+    if raw_devices is None:
+        return None
+    if isinstance(raw_devices, str):
+        devices = [part.strip() for part in raw_devices.split(",")]
+    else:
+        devices = [str(part).strip() for part in raw_devices]
+    parsed = [device for device in devices if device]
+    return parsed or None
+
+
+def default_single_device() -> list[str] | None:
+    """Return one explicit device for query-time encoding when possible."""
+
+    try:
+        # pyrefly: ignore[missing-import]  # optional dep; raised elsewhere if absent
+        import torch
+    except ImportError:  # pragma: no cover - depends on optional package
+        return None
+    if torch.cuda.is_available():  # pragma: no cover - hardware dependent
+        return ["cuda:0"]
+    return ["cpu"]
+
+
+class FlagEmbeddingEncoder:
+    """Lazy FlagEmbedding dense encoder wrapper.
+
+    The model is loaded on construction. Embeddings are L2-normalised so that
+    inner-product FAISS indexes behave as cosine-similarity searchers.
     """
 
     def __init__(
@@ -55,15 +82,24 @@ class SentenceTransformerEncoder:
         model_name: str = DEFAULT_BGE_M3_MODEL,
         *,
         max_length: int = DEFAULT_BGE_M3_MAX_LENGTH,
+        devices: str | Sequence[str] | None = None,
     ) -> None:
+        parsed_devices = parse_devices(devices)
         try:
             # pyrefly: ignore[missing-import]  # optional dep; raised cleanly below
-            from sentence_transformers import SentenceTransformer
+            from FlagEmbedding import BGEM3FlagModel
         except ImportError as exc:  # pragma: no cover - depends on optional package
-            raise OptionalDependencyError("sentence-transformers", "dense") from exc
-        self.model = SentenceTransformer(model_name)
-        self.model.max_seq_length = max_length
+            raise OptionalDependencyError("FlagEmbedding", "dense") from exc
+        self.model = BGEM3FlagModel(
+            model_name,
+            use_fp16=any(device.startswith("cuda") for device in parsed_devices or []),
+            devices=parsed_devices,
+            query_max_length=max_length,
+            passage_max_length=max_length,
+        )
         self.model_name = model_name
+        self.max_length = max_length
+        self.devices = parsed_devices
 
     def encode(
         self,
@@ -74,22 +110,25 @@ class SentenceTransformerEncoder:
     ) -> np.ndarray:
         """Encode ``texts`` into an ``(N, D)`` float32 matrix of L2-normalised vectors."""
 
-        vectors = self.model.encode(
+        output = self.model.encode(
             list(texts),
             batch_size=batch_size,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=show_progress_bar,
+            max_length=self.max_length,
+            return_dense=True,
+            return_sparse=False,
+            return_colbert_vecs=False,
         )
+        _ = show_progress_bar  # FlagEmbedding handles its own progress behavior.
+        vectors = output["dense_vecs"]
         return l2_normalize(np.asarray(vectors, dtype=np.float32))
 
 
 def l2_normalize(vectors: np.ndarray) -> np.ndarray:
     """Return row-wise L2-normalised float32 vectors.
 
-    SentenceTransformers already receives ``normalize_embeddings=True`` above,
-    but this keeps FAISS ingestion correct when tests or future callers inject a
-    lightweight encoder implementation.
+    FlagEmbedding already returns normalized dense vectors, but this keeps FAISS
+    ingestion correct when tests or future callers inject a lightweight encoder
+    implementation.
     """
 
     matrix = np.asarray(vectors, dtype=np.float32)
@@ -165,9 +204,10 @@ def build_faiss_hnsw_index(
     collection_path: str | Path,
     index_dir: str | Path,
     *,
-    encoder: SentenceTransformerEncoder | None = None,
+    encoder: FlagEmbeddingEncoder | None = None,
     model_name: str = DEFAULT_BGE_M3_MODEL,
     max_length: int = DEFAULT_BGE_M3_MAX_LENGTH,
+    devices: str | Sequence[str] | None = None,
     batch_size: int = 32,
     hnsw_m: int = DEFAULT_HNSW_M,
     ef_construction: int = DEFAULT_EF_CONSTRUCTION,
@@ -185,9 +225,10 @@ def build_faiss_hnsw_index(
     if threads is not None and hasattr(faiss, "omp_set_num_threads"):
         faiss.omp_set_num_threads(threads)
 
-    active_encoder = encoder or SentenceTransformerEncoder(
+    active_encoder = encoder or FlagEmbeddingEncoder(
         model_name=model_name,
         max_length=max_length,
+        devices=devices,
     )
     output_dir = Path(index_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -241,6 +282,7 @@ def build_faiss_hnsw_index(
         "retriever": "bge_m3",
         "model_name": model_name,
         "max_length": max_length,
+        "devices": active_encoder.devices,
         "pooling": "cls",
         "normalize_embeddings": True,
         "faiss_index": "IndexHNSWFlat",
@@ -353,7 +395,7 @@ class DenseTextSearcher:
 
     def __init__(
         self,
-        encoder: SentenceTransformerEncoder,
+        encoder: FlagEmbeddingEncoder,
         searcher: FaissDenseSearcher,
         *,
         batch_size: int = 32,
@@ -388,7 +430,11 @@ def load_dense_text_searcher(
         raise FileNotFoundError(f"Dense FAISS index not found: {index_path}")
     if not doc_ids_path.exists():
         raise FileNotFoundError(f"Dense doc_ids file not found: {doc_ids_path}")
-    encoder = SentenceTransformerEncoder(model_name=model_name, max_length=max_length)
+    encoder = FlagEmbeddingEncoder(
+        model_name=model_name,
+        max_length=max_length,
+        devices=default_single_device(),
+    )
     return DenseTextSearcher(
         encoder,
         FaissDenseSearcher(index_path, read_doc_ids(doc_ids_path), ef_search=ef_search),

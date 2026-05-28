@@ -11,6 +11,11 @@ from nya_ir.data.io import write_trec_run
 from nya_ir.data.records import RunEntry
 from nya_ir.experiment import RetrieverName
 from nya_ir.retrieval.base import Retriever
+from nya_ir.retrieval.dense import (
+    DEFAULT_BGE_M3_MAX_LENGTH,
+    DEFAULT_BGE_M3_MODEL,
+    DEFAULT_EF_SEARCH,
+)
 
 
 def iter_query_jsonl(path: Path) -> Iterator[tuple[str, str]]:
@@ -35,6 +40,23 @@ def run_searches(
     """
 
     entries: list[RunEntry] = []
+    search_many = getattr(searcher, "search_many", None)
+    if callable(search_many):
+        query_rows = list(queries)
+        hits_by_query = search_many([query_text for _query_id, query_text in query_rows], top_k=hits)
+        for (query_id, _query_text), query_hits in zip(query_rows, hits_by_query, strict=True):
+            for hit in query_hits:
+                entries.append(
+                    RunEntry(
+                        query_id=query_id,
+                        doc_id=hit.doc_id,
+                        rank=hit.rank,
+                        score=hit.score,
+                        run_id=run_id,
+                    )
+                )
+        return entries
+
     for query_id, query_text in queries:
         for hit in searcher.search(query_text, top_k=hits):
             entries.append(
@@ -59,6 +81,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hits", type=int, default=1000)
     parser.add_argument("--k1", type=float, default=0.9)
     parser.add_argument("--b", type=float, default=0.4)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--model-name", default=DEFAULT_BGE_M3_MODEL)
+    parser.add_argument("--max-length", type=int, default=DEFAULT_BGE_M3_MAX_LENGTH)
+    parser.add_argument("--ef-search", type=int, default=DEFAULT_EF_SEARCH)
     parser.add_argument(
         "--language",
         default="id",
@@ -78,9 +104,17 @@ def _build_searcher(args: argparse.Namespace) -> Retriever:
         return PyseriniBM25Searcher(
             args.index_dir, k1=args.k1, b=args.b, language=args.language
         )
-    raise SystemExit(
-        f"Retriever {retriever.value!r} is scaffolded but not yet wired into this CLI."
-    )
+    if retriever is RetrieverName.BGE_M3:
+        from nya_ir.retrieval.dense import load_dense_text_searcher
+
+        return load_dense_text_searcher(
+            args.index_dir,
+            model_name=args.model_name,
+            max_length=args.max_length,
+            batch_size=args.batch_size,
+            ef_search=args.ef_search,
+        )
+    raise SystemExit(f"Unsupported retriever: {retriever.value}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -102,4 +136,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

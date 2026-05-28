@@ -12,4 +12,3 @@ retrievers:
     hnsw_m: 32
     ef_construction: 200
     hits: 1000
-

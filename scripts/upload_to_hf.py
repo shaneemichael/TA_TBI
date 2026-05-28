@@ -178,7 +178,7 @@ def _build_readme(repo_id: str, processed_dir: Path) -> str:
         "",
         "All JSONL files have two fields: `id` (str) and `contents` (str).",
         "Loadable with `datasets.load_dataset(\"" + repo_id + "\", data_files=...)` ",
-        "or with the Pyserini / sentence-transformers ingestion paths.",
+        "or with the Pyserini / FlagEmbedding ingestion paths.",
         "",
         "## Citation",
         "",

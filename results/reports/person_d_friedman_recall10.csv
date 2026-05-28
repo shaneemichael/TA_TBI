@@ -1,0 +1,3 @@
+retriever_family,metric,conditions,paired_queries,friedman_statistic,friedman_p_value
+bge_m3,recall@10,bge_m3__keep|bge_m3__naive_strip|bge_m3__rule_resolved|bge_m3__sastrawi_clitic|bge_m3__sentinel,960,5.501706484647996,0.23957951886211656
+bm25,recall@10,bm25__keep|bm25__naive_strip|bm25__rule_resolved|bm25__sastrawi_clitic|bm25__sentinel,960,2.308943089430207,0.6791412992016961

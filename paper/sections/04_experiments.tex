@@ -3,11 +3,11 @@
 
 \subsection{Implementation}
 
-\todo{Fill in once code is written. Cover: pyserini version, sentence-transformers version, PySastrawi version, FAISS configuration, hardware (Kaggle T4), random seeds.}
+The experiment is implemented as a Python package with command-line entry points for data preparation, indexing, retrieval, evaluation, and analysis. The analysis stack uses NumPy, pandas, SciPy, statsmodels, matplotlib, PyYAML, and pytrec-eval~\cite{vangysel2018pytrec_eval}; retrieval uses Pyserini~\cite{lin2021pyserini}, FlagEmbedding, PyTorch, and FAISS~\cite{douze2024faiss}. Preprocessing uses PySastrawi~\cite{sastrawi} for the bundled root dictionary. The experiment matrix fixes seed 42. BM25 jobs are CPU/Lucene runs; BGE-m3 runs were executed in Kaggle GPU sessions with FAISS HNSW and \texttt{efSearch}=1000.
 
 \subsection{Preprocessing pipeline verification}
 
-\todo{Day~1 task. Report the false-positive rate of Strategy~2 (Naive strip) on a 50-word test set of known non-clitic words ending in `nya'. Report the same set after Strategy~3 (Sastrawi clitic with dictionary guard) to confirm protection.}
+Before retrieval, preprocessing must pass a 20-entry gate covering single-token false positives (\id{punya}, \id{tanya}, \id{hanya}, \id{Kenya}, \id{Sonya}) and multi-sentence anaphoric cases. This is a regression check, not a linguistic benchmark; Sastrawi dictionary coverage remains a limitation because rare names, technical terms, and some lexicalised forms can still be mishandled.
 
 \subsection{Indexing}
 
@@ -15,13 +15,16 @@ For each of the five preprocessing strategies, two indices are built per the BM2
 
 \subsection{Rule-based resolver implementation (Strategy 5)}
 
-The rule-based \id{-nya} anaphora resolver is implemented as a three-stage pipeline: (i)~clitic detection using the same dictionary-guarded matcher as Strategies 3 and 4, (ii)~functional-class classification (possessive, definite, anaphoric, nominaliser) using surface-context heuristics over the host word's part-of-speech and the salience of preceding noun phrases, and (iii)~antecedent substitution for occurrences classified as anaphoric, selecting the most recent salient noun phrase from the prior one to two sentences. The pipeline is applied uniformly to all 1.4M MIRACL-id passages. \todo{Report total wall-clock time and CPU profile once implementation is complete.}
+The Rule-resolved strategy detects \id{-nya} with the same dictionary guard, classifies each occurrence using surface context, and substitutes anaphoric cases with a recent salient noun phrase. It is deterministic, CPU-only, and applied uniformly rather than selectively. Thus Strategy~5 estimates the deployable value of a cheap in-house resolver, not gold or neural coreference.
 
 \subsection{Sensitivity stratification}
 
-Per-query \id{-nya} sensitivity scores are computed using the formula
+Per-query sensitivity scores are computed as
 \begin{equation}
-\mathrm{sensitivity}(q) = \alpha \cdot c_{\text{nya}}(q) + \beta \cdot c_{\text{ana}}(q) + \gamma \cdot \mathbf{1}[\text{queried entity referenced via -nya}]
+\begin{aligned}
+\mathrm{sensitivity}(q) ={}& \alpha \, c_{\text{nya}}(q) + \beta \, c_{\text{ana}}(q) \\
+&+ \gamma \, \mathbf{1}_{\text{entity via -nya}}
+\end{aligned}
 \label{eq:sensitivity}
 \end{equation}
-where $c_{\text{nya}}$ and $c_{\text{ana}}$ are counts of total and heuristically-detected anaphoric \id{-nya} occurrences in the gold-relevant passages, with weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ (frozen prior to main analysis). Queries are stratified into low/mid/high tertiles for the H5 analysis.
+using total and heuristically-detected anaphoric \id{-nya} counts in gold-relevant passages, plus an indicator for queried-entity reference via \id{-nya}. We use frozen weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ and stratify queries into low/mid/high tertiles.

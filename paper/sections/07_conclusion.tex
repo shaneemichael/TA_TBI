@@ -1,7 +1,7 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-\todo{Populate after results. Suggested structure: one sentence summarising the empirical finding across the five strategies; one sentence on practical recommendation for Indonesian retrieval practitioners; one sentence on the gain from rule-based anaphora resolution and what it implies for future Indonesian anaphora-aware retrieval research; one sentence pointing to released artefacts.}
+This study finds that Indonesian \id{-nya} preprocessing has small retrieval effects on MIRACL-id. BM25 is statistically sensitive to strategy choice, but practical gaps are tiny; BGE-m3 is nearly invariant. The safest default is to preserve raw text for dense retrieval and use dictionary-guarded clitic handling, not naive regex stripping, when sparse pipelines require suffix handling. The in-house resolver does not improve retrieval, leaving stronger Indonesian coreference models and multi-benchmark replication as future work. The released code, metric CSVs, analysis outputs, and integrity reports make this negative result reproducible.
 
 \section*{Reproducibility}
 
@@ -13,4 +13,4 @@ Literature scanning, code skeleton drafting, and LaTeX scaffolding were assisted
 
 \section*{Acknowledgements}
 
-\todo{Add when paper is complete: dataset providers (MIRACL team), Sastrawi maintainers, any collaborators or reviewers.}
+We thank the MIRACL dataset creators for releasing the Indonesian retrieval benchmark, the Sastrawi maintainers for the Indonesian stemming resources used in the dictionary-guarded conditions, and the open-source maintainers of Pyserini, FAISS, FlagEmbedding, and pytrec-eval.

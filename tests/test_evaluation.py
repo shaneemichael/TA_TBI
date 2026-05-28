@@ -140,3 +140,63 @@ def test_analyze_results_writes_summary_and_pairwise_tables(tmp_path: Path):
     assert row["retriever_family"] == "bm25"
     assert row["bonferroni_family_size"] == 1
 
+
+def test_analyze_results_writes_friedman_and_stratified_outputs(tmp_path: Path):
+    paths: list[Path] = []
+    header = "query_id,condition,ndcg@1,ndcg@10,recall@10,mrr@100,recall@100\n"
+    conditions = {
+        "bm25__keep": 0.50,
+        "bm25__sastrawi_clitic": 0.55,
+        "bm25__rule_resolved": 0.60,
+    }
+    for condition, base in conditions.items():
+        path = tmp_path / f"{condition}.csv"
+        rows = "".join(
+            f"q{i},{condition},0.0,{base + 0.001 * i:.3f},1.0,0.5,1.0\n"
+            for i in range(1, 9)
+        )
+        path.write_text(header + rows, encoding="utf-8")
+        paths.append(path)
+
+    sensitivity = tmp_path / "sensitivity.csv"
+    sensitivity.write_text(
+        "query_id,nya_total,nya_anaphoric,entity_referenced,sensitivity_score,tertile\n"
+        "q1,0,0,0,0,low\n"
+        "q2,0,0,0,0,low\n"
+        "q3,1,1,0,3,mid\n"
+        "q4,1,1,0,3,mid\n"
+        "q5,3,3,1,12,high\n"
+        "q6,3,3,1,12,high\n"
+        "q7,3,3,1,12,high\n"
+        "q8,3,3,1,12,high\n",
+        encoding="utf-8",
+    )
+    friedman = tmp_path / "friedman.csv"
+    stratified = tmp_path / "stratified.csv"
+
+    exit_code = analyze_results_main(
+        [
+            "--metrics",
+            *(str(path) for path in paths),
+            "--metric",
+            "ndcg@10",
+            "--friedman-output",
+            str(friedman),
+            "--sensitivity",
+            str(sensitivity),
+            "--stratified-output",
+            str(stratified),
+            "--bootstrap-resamples",
+            "100",
+        ]
+    )
+
+    assert exit_code == 0
+    friedman_rows = pd.read_csv(friedman)
+    assert list(friedman_rows["retriever_family"]) == ["bm25"]
+    assert friedman_rows.loc[0, "paired_queries"] == 8
+
+    stratified_rows = pd.read_csv(stratified)
+    assert set(stratified_rows["tertile"]) == {"low", "mid", "high"}
+    assert set(stratified_rows["retriever_family"]) == {"bm25"}
+

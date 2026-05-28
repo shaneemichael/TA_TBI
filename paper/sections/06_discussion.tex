@@ -1,30 +1,16 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\todo{Populate after results. Address each of:}
+\subsection{Interpretation}
 
-\subsection{What our results say about Indonesian preprocessing defaults}
+The main result is conservative: \id{-nya} preprocessing is not a large source of retrieval-effectiveness variation on MIRACL-id dev. BM25 shows a significant omnibus difference, but the strongest strategies differ by less than 0.001 nDCG@10. BGE-m3 is even less sensitive, with all strategies clustered within roughly 0.002 nDCG@10. Thus, Indonesian retrieval systems should avoid linguistically elaborate rewriting unless a task-specific validation set shows a real gain.
 
-\todo{Connect findings back to the Tala (2003) baseline and the Camacho-Collados et al. (2023) finding for English. Position as confirmatory or contrastive.}
+The expected harm from naive stripping also does not appear at benchmark scale. The regex corrupts tokens such as \id{punya}, \id{tanya}, and proper names, but those errors are not often decisive for ranking gold passages. If suffix handling is needed for a sparse or stemming-based pipeline, Sastrawi clitic with dictionary guarding is still preferable because it avoids known false positives with no observed effectiveness cost.
 
-\subsection{Implications for production Indonesian retrieval systems}
+The in-house Rule-resolved strategy does not improve retrieval. This is not evidence that Indonesian anaphora resolution is useless; it shows that this cheap surface resolver is not accurate enough to help. The BGE-m3 Sentinel result should also not be over-read: \texttt{<NYA>} is an artificial OOV token outside BGE-m3 pretraining, so the Sentinel condition partly measures graceful handling of an unfamiliar marker rather than only the value of clitic-presence information. Stronger neural or oracle resolvers remain future work.
 
-\todo{Concrete recommendation: should practitioners preprocess \id{-nya}, and if so, how? Tie to the architecture-interaction result.}
+\subsection{Limitations and Validity}
 
-\subsection{Rule-based anaphora resolution and the ceiling for future research}
+Strategy~5 is a deterministic in-house resolver, not a neural coreference model or an oracle. Its known failure modes include choosing sentence-initial common nouns as antecedents and mishandling chained \id{-nya} references across sentences. The Sastrawi condition depends on Sastrawi's bundled root dictionary; rare names, technical terms, and lexicalised/adverbial forms such as \id{biasanya} or \id{karenanya} can still be handled imperfectly. All runs use MIRACL-id dev and one seed/configuration per retriever; FAISS HNSW construction can also vary under parallel execution, so we do not claim generalisation to legal, medical, social-media, or conversational Indonesian retrieval.
 
-\todo{If Rule-resolved gain is large: an automated -nya resolver is a worthwhile engineering investment for Indonesian retrieval. If small: surface-level handling (Strategies 3 or 4) is sufficient and the bottleneck for retrieval improvement lies elsewhere.}
-
-\subsection{Limitations}
-
-Strategy 5 (Rule-resolved) is a best-effort automated resolver; it inherits the error rate of its heuristic classifier and antecedent-selection rules into the retrieval result. A practical upper bound on retrieval gain from \id{-nya} anaphora resolution would require either a higher-accuracy resolver (neural or LLM-based) or oracle manual annotation. The realistic deployable gain reported here is bounded above by the gain that a perfect resolver would produce, and below by the gain of a degenerate resolver that classifies every occurrence as non-anaphoric.
-
-Our evaluation is on a single benchmark (MIRACL-id). \todo{Add note on Mr. TyDi-id replication if attempted.} Generalisation to other Indonesian retrieval contexts (legal, medical, social-media) requires additional evaluation.
-
-The Sastrawi clitic condition (Strategy~3) depends on Sastrawi's internal Indonesian root dictionary; rare or technical-domain vocabulary may produce false positives and false negatives. \todo{Quantify if observed in failure analysis.}
-
-The naive-strip baseline (Strategy~2) is a deliberate harm-baseline; the more important comparison is between Keep, Sastrawi clitic, Sentinel, and Rule-resolved. Naive is included to quantify the harm of a preprocessing pattern that does appear in practitioner code, not to argue that anyone should use it.
-
-\subsection{Threats to construct validity}
-
-The choice to apply preprocessing symmetrically to queries and passages reflects standard IR experimental practice but may differ from production deployments where query- and corpus-side preprocessing are independently configured. \todo{Discuss if any condition appears unusually sensitive to this choice.}
+The sensitivity score is also heuristic, using surface counts and resolver-aligned anaphoric cues rather than gold coreference annotation. Its queried-entity indicator is conservative and can miss queries without explicit proper nouns. This makes H5 reproducible and scalable but limits how strongly stratified effects can be interpreted.

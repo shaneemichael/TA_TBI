@@ -1,28 +1,16 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{What our results say about Indonesian preprocessing defaults}
+\subsection{Interpretation}
 
-The main result is conservative: \id{-nya} preprocessing is not a large source of retrieval-effectiveness variation on MIRACL-id dev. BM25 shows a statistically significant omnibus difference across strategies, but the top three strategies differ by less than 0.001 nDCG@10. BGE-m3 is even less sensitive: all five strategies cluster within roughly 0.002 nDCG@10. This suggests that modern Indonesian retrieval pipelines should be cautious about adding linguistically elaborate \id{-nya} rewriting unless a task-specific validation set shows a larger gain.
+The main result is conservative: \id{-nya} preprocessing is not a large source of retrieval-effectiveness variation on MIRACL-id dev. BM25 shows a significant omnibus difference, but the strongest strategies differ by less than 0.001 nDCG@10. BGE-m3 is even less sensitive, with all strategies clustered within roughly 0.002 nDCG@10. Thus, Indonesian retrieval systems should avoid linguistically elaborate rewriting unless a task-specific validation set shows a real gain.
 
-The result also complicates the expected harm story for naive stripping. The regex demonstrably corrupts tokens such as \id{punya}, \id{tanya}, and proper names, but this corruption does not translate into a significant MIRACL-id retrieval penalty. The likely explanation is that these false positives are not often decisive for the gold-passage ranking, and that both BM25 and BGE-m3 have enough remaining lexical or semantic evidence to recover.
+The expected harm from naive stripping also does not appear at benchmark scale. The regex corrupts tokens such as \id{punya}, \id{tanya}, and proper names, but those errors are not often decisive for ranking gold passages. If suffix handling is needed for a sparse or stemming-based pipeline, Sastrawi clitic with dictionary guarding is still preferable because it avoids known false positives with no observed effectiveness cost.
 
-\subsection{Implications for production Indonesian retrieval systems}
+The in-house Rule-resolved strategy does not improve retrieval. This is not evidence that Indonesian anaphora resolution is useless; it shows that this cheap surface resolver is not accurate enough to help. The BGE-m3 Sentinel result should also not be over-read: \texttt{<NYA>} is an artificial OOV token outside BGE-m3 pretraining, so the Sentinel condition partly measures graceful handling of an unfamiliar marker rather than only the value of clitic-presence information. Stronger neural or oracle resolvers remain future work.
 
-For production systems, the safest recommendation is to keep preprocessing simple. For dense retrieval with BGE-m3, Keep or Sentinel are effectively tied, so preserving raw text is a defensible default. For BM25, Naive strip and Sastrawi clitic are numerically highest, but the practical gap over Keep is tiny. If preprocessing is required for compatibility with an existing Indonesian stemming pipeline, Sastrawi clitic with dictionary guarding is preferable to the naive regex because it avoids known false positives without sacrificing observed effectiveness.
+\subsection{Limitations and Validity}
 
-\subsection{Rule-based anaphora resolution and future resolver work}
+Strategy~5 is a deterministic in-house resolver, not a neural coreference model or an oracle. Its known failure modes include choosing sentence-initial common nouns as antecedents and mishandling chained \id{-nya} references across sentences. The Sastrawi condition depends on Sastrawi's bundled root dictionary; rare names, technical terms, and lexicalised/adverbial forms such as \id{biasanya} or \id{karenanya} can still be handled imperfectly. All runs use MIRACL-id dev and one seed/configuration per retriever; FAISS HNSW construction can also vary under parallel execution, so we do not claim generalisation to legal, medical, social-media, or conversational Indonesian retrieval.
 
-The in-house Rule-resolved strategy does not improve retrieval. This should not be read as evidence that Indonesian anaphora resolution is useless for retrieval; it is evidence that this lightweight, surface-rule resolver is not accurate enough to produce a measurable gain at benchmark scale. A stronger resolver could still help on queries where answer passages repeatedly refer to the queried entity via \id{-nya}, but that claim now requires a higher-quality resolver or an oracle diagnostic study.
-
-\subsection{Limitations}
-
-Strategy~5 is an in-house rule-based resolver. It uses surface heuristics for detection, functional classification, and antecedent selection; it is not a neural coreference model and not an oracle. Its negative result is therefore best interpreted as the deployable gain of a cheap deterministic resolver, not as the upper bound for anaphora-aware retrieval.
-
-The Sastrawi clitic condition depends on Sastrawi's bundled Indonesian root dictionary. Dictionary coverage affects both false positives and false negatives: rare names, technical vocabulary, domain-specific terms, and adverbial forms whose roots are in the dictionary can be handled imperfectly. The dictionary-guarded strategy is reproducible, but not linguistically complete.
-
-All reported runs use a single benchmark, MIRACL-id dev, and a single seed/configuration per retriever. We do not claim generalisation to legal, medical, social-media, or conversational Indonesian retrieval without further evaluation. The BGE-m3 experiments use one dense configuration rather than a sweep over max length, HNSW parameters, or alternative multilingual encoders.
-
-\subsection{Threats to construct validity}
-
-The choice to apply preprocessing symmetrically to queries and passages reflects standard IR experimental practice but may differ from production deployments where query- and corpus-side preprocessing are independently configured. The sensitivity score is also heuristic: it uses surface counts and resolver-aligned anaphoric cues rather than gold coreference annotation. These choices make the experiment reproducible and scalable, but they limit how strongly H5 can be interpreted.
+The sensitivity score is also heuristic, using surface counts and resolver-aligned anaphoric cues rather than gold coreference annotation. Its queried-entity indicator is conservative and can miss queries without explicit proper nouns. This makes H5 reproducible and scalable but limits how strongly stratified effects can be interpreted.

@@ -13,21 +13,21 @@ We pre-register five falsifiable hypotheses corresponding to RQ1--RQ5:
 
 \subsection{Preprocessing conditions}
 
-Each strategy is applied identically to queries and passages.
+Each strategy is applied identically to queries and passages:
 
 \input{../shared/preprocessing_strategies}
 
-Implementation details for each strategy --- including dictionary-guard wrapping for Strategy~3, the false-positive verification protocol for Strategy~2, and the heuristic-classifier plus antecedent-selection rules for Strategy~5 --- are reported in \secref{sec:experiments}.
+Implementation details, including dictionary guarding, verification, and resolver heuristics, are reported in \secref{sec:experiments}.
 
 \subsection{Retrievers}
 
-We evaluate two retriever architectures spanning the sparse--dense spectrum.
+We evaluate one sparse and one dense retriever.
 
 \smallskip
-\noindent\textbf{BM25.} Standard BM25 implementation in Pyserini~\cite{lin2021pyserini}, with $k_1 = 0.9$ and $b = 0.4$ (standard MIRACL configuration). Tokenisation uses the default whitespace-plus-punctuation analyser.
+\noindent\textbf{BM25.} Pyserini BM25~\cite{lin2021pyserini}, with $k_1 = 0.9$, $b = 0.4$, and top-1000 retrieval.
 
 \smallskip
-\noindent\textbf{BGE-m3.} The dense embedding mode of BGE-m3~\cite{chen2024bgem3}, with maximum sequence length capped at 512 tokens. Indices built using FAISS~\cite{douze2024faiss} HNSW~\cite{malkov2020hnsw} with $M = 32$ and \texttt{efConstruction} $= 200$.
+\noindent\textbf{BGE-m3.} BGE-m3 dense embeddings~\cite{chen2024bgem3} indexed with FAISS~\cite{douze2024faiss} HNSW~\cite{malkov2020hnsw} ($M=32$, \texttt{efConstruction}=200). We set \texttt{max\_length}=512 to match MIRACL passage lengths; BGE-m3 supports up to 8192 tokens, so this truncation is unlikely to affect these passage-level runs.
 
 \subsection{Dataset}
 
@@ -35,21 +35,24 @@ We evaluate on the Indonesian split of MIRACL~\cite{zhang2023miracl}: approximat
 
 \subsection{Metrics}
 
-\noindent\textbf{Primary:} nDCG@10. \textbf{Secondary:} MRR@100, nDCG@1, Recall@10, Recall@100. Per-query metrics are computed under every condition; nDCG@1 is reported as a more sensitive metric in case of saturation effects on dense baselines.
+\noindent\textbf{Primary:} nDCG@10. \textbf{Secondary:} MRR@100, nDCG@1, Recall@10, Recall@100. Per-query metrics are computed under every condition.
 
 \subsection{Sensitivity stratification}
 
 Per-query \id{-nya} sensitivity scores are computed using the formula
 \begin{equation}
-\mathrm{sensitivity}(q) = \alpha \, c_{\text{nya}}(q) + \beta \, c_{\text{ana}}(q) + \gamma \, \mathbf{1}[\text{queried entity referenced via -nya}]
+\begin{aligned}
+\mathrm{sensitivity}(q) ={}& \alpha \, c_{\text{nya}}(q) + \beta \, c_{\text{ana}}(q) \\
+&+ \gamma \, \mathbf{1}_{\text{entity via -nya}}
+\end{aligned}
 \label{eq:sensitivity}
 \end{equation}
-where $c_{\text{nya}}$ and $c_{\text{ana}}$ are counts of total and heuristically-detected anaphoric \id{-nya} occurrences in the gold-relevant passages, with weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ (frozen prior to main analysis). Queries are stratified into low/mid/high tertiles for the H5 analysis.
+where $c_{\text{nya}}$ and $c_{\text{ana}}$ count total and heuristically-detected anaphoric \id{-nya} occurrences in gold-relevant passages, and the indicator marks whether the queried entity is referenced via \id{-nya}. We use frozen weights $\alpha = 1$, $\beta = 2$, $\gamma = 3$ and split queries into low/mid/high tertiles.
 
 \subsection{Statistical analysis}
 
-Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across the $\binom{5}{2} = 10$ pairs per retriever ($\alpha = 0.005$ within each retriever family). Effect sizes are reported as Cliff's $\delta$. Bootstrap 95\% confidence intervals on $\Delta$nDCG@10 are computed with 10{,}000 resamples. The H5 stratification analysis uses a mixed-effects model with strategy-by-stratum interaction. The protocol follows the recommendations of Dror et al.~\cite{dror2018hitchhiker}.
+Omnibus tests use Friedman's test on per-query nDCG@10. Pairwise post-hoc tests use Wilcoxon signed-rank with Bonferroni correction across 10 pairs per retriever. We report Cliff's $\delta$ and bootstrap 95\% confidence intervals from 10{,}000 resamples, following Dror et al.~\cite{dror2018hitchhiker}. H5 uses within-stratum pairwise Wilcoxon tests by sensitivity tertile, Bonferroni-corrected within each tertile.
 
 \subsection{Reproducibility and pre-registration}
 
-This methodology was committed to a public Git repository prior to running any experimental code, serving as a lightweight pre-registration of the design. All code, intermediate indices, and analysis scripts will be released under an open licence on completion.
+This methodology was committed before the main runs as a lightweight pre-registration. Code, run files, metric CSVs, and analysis scripts are released with the project.

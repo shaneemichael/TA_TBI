@@ -3,7 +3,7 @@
 
 \subsection{Main results}
 
-Table~\ref{tab:main-ndcg10} reports the primary nDCG@10 results on the 960-query MIRACL-id dev set. For BGE-m3, all five preprocessing strategies are effectively tied: Sentinel is highest by a negligible margin (0.5603), followed by Keep (0.5603), Sastrawi clitic (0.5600), Naive strip (0.5591), and Rule-resolved (0.5583). For BM25, Naive strip is highest (0.4495), followed closely by Sastrawi clitic (0.4490) and Keep (0.4486); Sentinel is slightly lower (0.4469), and Rule-resolved is lowest (0.4413).
+Table~\ref{tab:main-ndcg10} reports primary nDCG@10 on 960 MIRACL-id dev queries. For BGE-m3, all strategies are effectively tied within roughly 0.002 nDCG@10. For BM25, Naive strip is highest (0.4495), followed closely by Sastrawi clitic (0.4490) and Keep (0.4486); Rule-resolved is lowest (0.4413).
 
 \begin{table}[t]
 \centering
@@ -24,24 +24,24 @@ Rule-resolved & 0.4413 & 0.5583 \\
 
 \subsection{Omnibus preprocessing effect (H1)}
 
-The Friedman omnibus test supports H1 for BM25 but not for BGE-m3. For BM25, the five strategies differ significantly in their paired nDCG@10 distributions ($\chi^2 = 40.13$, $p = 4.07\times10^{-8}$). For BGE-m3, the corresponding test is not significant ($\chi^2 = 2.64$, $p = 0.620$). Thus, preprocessing choices measurably affect sparse retrieval in this setup, while dense retrieval is robust to the tested \id{-nya} transformations.
+Friedman's test supports H1 for BM25 but not BGE-m3. BM25 strategies differ significantly ($\chi^2 = 40.13$, $p = 4.07\times10^{-8}$), while BGE-m3 does not ($\chi^2 = 2.64$, $p = 0.620$). This means preprocessing affects BM25 more detectably; it does not mean BM25 is the stronger retriever, since BGE-m3 has higher absolute nDCG@10 in every strategy.
 
 \subsection{Naive strip is harmful (H2)}
 
-H2 is not supported. The pre-registered one-tailed test predicted Naive strip would underperform Keep. Instead, Naive strip is slightly higher than Keep for BM25 (mean $\Delta$ Naive--Keep = +0.0009 nDCG@10; Bonferroni-adjusted $p = 0.217$) and slightly lower than Keep for BGE-m3 (mean $\Delta$ = -0.0012; Bonferroni-adjusted $p = 1.000$). Both differences are practically tiny and do not support a claim that the naive regex causes measurable retrieval harm on MIRACL-id dev.
+H2 is not supported. Naive strip is slightly higher than Keep for BM25 (mean $\Delta$ Naive--Keep = +0.0009; adjusted $p = 0.217$) and slightly lower for BGE-m3 (mean $\Delta$ = -0.0012; adjusted $p = 1.000$). These differences do not show measurable retrieval harm.
 
 \subsection{Architecture-by-strategy interaction (H3)}
 
-The best observed strategy differs descriptively by architecture: Naive strip is highest for BM25, while Sentinel is highest for BGE-m3. However, the absolute gaps among the top strategies are extremely small, especially for BGE-m3. We therefore treat H3 as descriptive evidence rather than running a mixed-effects interaction model in the main analysis; the model is deferred to future work or to a larger multi-benchmark replication where interaction terms would be better identified.
+The best observed strategy differs descriptively: Naive strip is highest for BM25, while Sentinel is highest for BGE-m3. Because the gaps are tiny, especially for BGE-m3, we defer a formal H3 interaction model to a larger multi-benchmark replication.
 
 \subsection{Rule-based resolution gain (H4)}
 
-H4 is not supported. Rule-resolved does not outperform the best non-resolving strategy. Against Sastrawi clitic for BM25, Rule-resolved is lower by 0.0076 nDCG@10 on average (the directional test for Rule-resolved $>$ Sastrawi has adjusted $p = 1.000$). Against Sentinel for BGE-m3, Rule-resolved is lower by 0.0021 nDCG@10 on average (adjusted $p = 1.000$). The current rule-based resolver therefore introduces more noise than useful retrieval signal under the tested configuration.
+H4 is not supported. Rule-resolved is lower than Sastrawi clitic for BM25 by 0.0076 nDCG@10 and lower than Sentinel for BGE-m3 by 0.0021, with adjusted $p = 1.000$ for both directional gain tests. The current resolver adds more noise than useful signal.
 
 \subsection{Sensitivity stratification (H5)}
 
-The sensitivity annotations split the 960 dev queries into 331 low-, 269 mid-, and 360 high-sensitivity queries. Stratified pairwise tests do not show the hypothesised pattern that high-sensitivity queries exhibit larger reliable gains from \id{-nya}-aware preprocessing. The only Bonferroni-significant nDCG@10 effects in the stratified analysis occur in the low-sensitivity BM25 stratum and involve Rule-resolved underperforming the stronger surface-level strategies. This does not support H5.
+The sensitivity annotations split the 960 dev queries into 331 low-, 269 mid-, and 360 high-sensitivity queries. Stratified tests do not show larger reliable gains on high-sensitivity queries. The only Bonferroni-significant effects occur in low-sensitivity BM25 and reflect Rule-resolved underperformance, so H5 is not supported.
 
 \subsection{Failure analysis}
 
-The quantitative results point to two failure modes for Strategy~5. First, antecedent substitution can damage otherwise useful lexical evidence when the heuristic resolver selects a sentence-initial common noun or an incorrect prior entity. Second, even when substitutions are plausible, the rewritten passage may move away from the token distribution preferred by BM25 or by BGE-m3's pretrained encoder. A fuller qualitative taxonomy should inspect the largest per-query rank changes between Sastrawi clitic and Rule-resolved before final submission.
+Strategy~5 has two likely failure modes: incorrect antecedents can damage useful lexical evidence, and even plausible rewrites can move passages away from the distribution preferred by BM25 or BGE-m3. A fuller qualitative taxonomy should inspect the largest per-query rank changes before final submission.

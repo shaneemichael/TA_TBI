@@ -392,7 +392,7 @@ def test_flag_embedding_encoder_returns_dense_float32_embeddings(
     vectors = encoder.encode(["foo", "bar"], batch_size=7, show_progress_bar=True)
 
     assert vectors.dtype == np.float32
-    assert vectors.tolist() == pytest.approx([[0.6, 0.8], [0.0, 0.0]])
+    np.testing.assert_allclose(vectors, np.asarray([[0.6, 0.8], [0.0, 0.0]], dtype=np.float32))
     assert captured["model_name"] == "BAAI/bge-m3"
     assert captured["texts"] == ["foo", "bar"]
     assert captured["init_kwargs"] == {

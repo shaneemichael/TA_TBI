@@ -59,7 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--model-name", default="BAAI/bge-m3")
-    parser.add_argument("--max-length", type=int, default=512)
+    parser.add_argument("--max-length", type=int, default=8192)
     parser.add_argument(
         "--devices",
         help=(

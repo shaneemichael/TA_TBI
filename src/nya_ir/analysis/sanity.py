@@ -47,7 +47,7 @@ class SanityResult:
 
         verdict = "PASS" if self.passed else "FAIL"
         return (
-            f"[{verdict}] Keep BM25 nDCG@10 = {self.observed_mean_ndcg10:.4f} "
+            f"[{verdict}] Keep baseline nDCG@10 = {self.observed_mean_ndcg10:.4f} "
             f"(N={self.n_queries}); reference = {self.reference_ndcg10:.4f} "
             f"± {self.tolerance:.4f}; delta = {self.delta:+.4f}"
         )

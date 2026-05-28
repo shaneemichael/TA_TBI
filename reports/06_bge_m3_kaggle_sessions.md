@@ -100,18 +100,10 @@ Run the Keep sanity gate:
 ```bash
 cd /kaggle/working/TA_TBI
 
-python - <<'PY'
-from nya_ir.analysis.sanity import check_keep_baseline_from_csv
-
-result = check_keep_baseline_from_csv(
-    "results/metrics/bge_m3/bge_m3__keep.csv",
-    reference=0.561,
-    tolerance=0.02,
-)
-print(result.explain())
-if not result.passed:
-    raise SystemExit("Keep failed sanity gate")
-PY
+python scripts/check_keep_sanity.py \
+  --csv results/metrics/bge_m3/bge_m3__keep.csv \
+  --reference 0.561 \
+  --tolerance 0.02
 ```
 
 Zip the outputs for handoff to the next session:

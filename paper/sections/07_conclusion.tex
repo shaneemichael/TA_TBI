@@ -1,7 +1,11 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-\todo{Populate after results. Suggested structure: one sentence summarising the empirical finding across the five strategies; one sentence on practical recommendation for Indonesian retrieval practitioners; one sentence on the gain from rule-based anaphora resolution and what it implies for future Indonesian anaphora-aware retrieval research; one sentence pointing to released artefacts.}
+This study isolates Indonesian \id{-nya} preprocessing as an experimental variable in MIRACL-id retrieval and finds that its aggregate effect is small. BM25 shows a statistically significant omnibus difference across the five strategies, but the strongest strategies are separated by less than 0.001 nDCG@10; BGE-m3 is even more stable, with all strategies clustered within roughly 0.002 nDCG@10. The practical recommendation is therefore conservative: preserve raw text by default for dense retrieval, and prefer dictionary-guarded Sastrawi-style clitic handling over naive regex stripping when a sparse or stemming-based Indonesian pipeline requires suffix handling.
+
+The in-house rule-based anaphora resolver does not improve retrieval under the tested configuration. That result should be interpreted narrowly: a cheap deterministic resolver introduces more ranking noise than useful signal here, but it does not rule out gains from stronger Indonesian coreference models, oracle diagnostics, or domain-specific anaphora-aware retrieval. Future work should therefore separate resolver quality from retrieval architecture more directly, ideally across multiple Indonesian benchmarks and with qualitative inspection of high-sensitivity queries.
+
+The released artifacts include the preprocessing pipeline, retrieval and evaluation scripts, per-query metric CSVs for all ten retriever-by-strategy conditions, statistical-analysis outputs, and integrity-check reports. Together, these artifacts make the negative result reproducible and give Indonesian IR practitioners a concrete baseline for deciding whether \id{-nya}-specific preprocessing is worth the added complexity.
 
 \section*{Reproducibility}
 
@@ -13,4 +17,4 @@ Literature scanning, code skeleton drafting, and LaTeX scaffolding were assisted
 
 \section*{Acknowledgements}
 
-\todo{Add when paper is complete: dataset providers (MIRACL team), Sastrawi maintainers, any collaborators or reviewers.}
+We thank the MIRACL dataset creators for releasing the Indonesian retrieval benchmark, the Sastrawi maintainers for the Indonesian stemming resources used in the dictionary-guarded conditions, and the open-source maintainers of Pyserini, FAISS, FlagEmbedding, and pytrec-eval.

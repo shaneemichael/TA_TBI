@@ -1,30 +1,28 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\todo{Populate after results. Address each of:}
-
 \subsection{What our results say about Indonesian preprocessing defaults}
 
-\todo{Connect findings back to the Tala (2003) baseline and the Camacho-Collados et al. (2023) finding for English. Position as confirmatory or contrastive.}
+The main result is conservative: \id{-nya} preprocessing is not a large source of retrieval-effectiveness variation on MIRACL-id dev. BM25 shows a statistically significant omnibus difference across strategies, but the top three strategies differ by less than 0.001 nDCG@10. BGE-m3 is even less sensitive: all five strategies cluster within roughly 0.002 nDCG@10. This suggests that modern Indonesian retrieval pipelines should be cautious about adding linguistically elaborate \id{-nya} rewriting unless a task-specific validation set shows a larger gain.
+
+The result also complicates the expected harm story for naive stripping. The regex demonstrably corrupts tokens such as \id{punya}, \id{tanya}, and proper names, but this corruption does not translate into a significant MIRACL-id retrieval penalty. The likely explanation is that these false positives are not often decisive for the gold-passage ranking, and that both BM25 and BGE-m3 have enough remaining lexical or semantic evidence to recover.
 
 \subsection{Implications for production Indonesian retrieval systems}
 
-\todo{Concrete recommendation: should practitioners preprocess \id{-nya}, and if so, how? Tie to the architecture-interaction result.}
+For production systems, the safest recommendation is to keep preprocessing simple. For dense retrieval with BGE-m3, Keep or Sentinel are effectively tied, so preserving raw text is a defensible default. For BM25, Naive strip and Sastrawi clitic are numerically highest, but the practical gap over Keep is tiny. If preprocessing is required for compatibility with an existing Indonesian stemming pipeline, Sastrawi clitic with dictionary guarding is preferable to the naive regex because it avoids known false positives without sacrificing observed effectiveness.
 
-\subsection{Rule-based anaphora resolution and the ceiling for future research}
+\subsection{Rule-based anaphora resolution and future resolver work}
 
-\todo{If Rule-resolved gain is large: an automated -nya resolver is a worthwhile engineering investment for Indonesian retrieval. If small: surface-level handling (Strategies 3 or 4) is sufficient and the bottleneck for retrieval improvement lies elsewhere.}
+The in-house Rule-resolved strategy does not improve retrieval. This should not be read as evidence that Indonesian anaphora resolution is useless for retrieval; it is evidence that this lightweight, surface-rule resolver is not accurate enough to produce a measurable gain at benchmark scale. A stronger resolver could still help on queries where answer passages repeatedly refer to the queried entity via \id{-nya}, but that claim now requires a higher-quality resolver or an oracle diagnostic study.
 
 \subsection{Limitations}
 
-Strategy 5 (Rule-resolved) is a best-effort automated resolver; it inherits the error rate of its heuristic classifier and antecedent-selection rules into the retrieval result. A practical upper bound on retrieval gain from \id{-nya} anaphora resolution would require either a higher-accuracy resolver (neural or LLM-based) or oracle manual annotation. The realistic deployable gain reported here is bounded above by the gain that a perfect resolver would produce, and below by the gain of a degenerate resolver that classifies every occurrence as non-anaphoric.
+Strategy~5 is an in-house rule-based resolver. It uses surface heuristics for detection, functional classification, and antecedent selection; it is not a neural coreference model and not an oracle. Its negative result is therefore best interpreted as the deployable gain of a cheap deterministic resolver, not as the upper bound for anaphora-aware retrieval.
 
-Our evaluation is on a single benchmark (MIRACL-id). \todo{Add note on Mr. TyDi-id replication if attempted.} Generalisation to other Indonesian retrieval contexts (legal, medical, social-media) requires additional evaluation.
+The Sastrawi clitic condition depends on Sastrawi's bundled Indonesian root dictionary. Dictionary coverage affects both false positives and false negatives: rare names, technical vocabulary, domain-specific terms, and adverbial forms whose roots are in the dictionary can be handled imperfectly. The dictionary-guarded strategy is reproducible, but not linguistically complete.
 
-The Sastrawi clitic condition (Strategy~3) depends on Sastrawi's internal Indonesian root dictionary; rare or technical-domain vocabulary may produce false positives and false negatives. \todo{Quantify if observed in failure analysis.}
-
-The naive-strip baseline (Strategy~2) is a deliberate harm-baseline; the more important comparison is between Keep, Sastrawi clitic, Sentinel, and Rule-resolved. Naive is included to quantify the harm of a preprocessing pattern that does appear in practitioner code, not to argue that anyone should use it.
+All reported runs use a single benchmark, MIRACL-id dev, and a single seed/configuration per retriever. We do not claim generalisation to legal, medical, social-media, or conversational Indonesian retrieval without further evaluation. The BGE-m3 experiments use one dense configuration rather than a sweep over max length, HNSW parameters, or alternative multilingual encoders.
 
 \subsection{Threats to construct validity}
 
-The choice to apply preprocessing symmetrically to queries and passages reflects standard IR experimental practice but may differ from production deployments where query- and corpus-side preprocessing are independently configured. \todo{Discuss if any condition appears unusually sensitive to this choice.}
+The choice to apply preprocessing symmetrically to queries and passages reflects standard IR experimental practice but may differ from production deployments where query- and corpus-side preprocessing are independently configured. The sensitivity score is also heuristic: it uses surface counts and resolver-aligned anaphoric cues rather than gold coreference annotation. These choices make the experiment reproducible and scalable, but they limit how strongly H5 can be interpreted.

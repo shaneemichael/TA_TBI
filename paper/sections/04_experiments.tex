@@ -3,11 +3,15 @@
 
 \subsection{Implementation}
 
-\todo{Fill in once code is written. Cover: pyserini version, sentence-transformers version, PySastrawi version, FAISS configuration, hardware (Kaggle T4), random seeds.}
+The experiment is implemented as a Python package with command-line entry points for data preparation, indexing, retrieval, evaluation, and statistical analysis. The dependency specification pins the main analysis stack to Python~$\geq 3.10$, NumPy, pandas, SciPy, statsmodels, matplotlib, PyYAML, and pytrec-eval~\cite{vangysel2018pytrec_eval}. Optional retrieval extras are separated by backend: BM25 uses Pyserini~\cite{lin2021pyserini}~$\geq 0.21$ over Lucene/Anserini, while dense retrieval uses FlagEmbedding~$\geq 1.3$ with PyTorch and FAISS~\cite{douze2024faiss}. Preprocessing uses PySastrawi~\cite{sastrawi}~$\geq 1.2$ for the bundled Indonesian root dictionary used by Strategy~3 and by the Strategy~5 dictionary guard.
+
+The experiment matrix fixes the random seed at 42 and evaluates five preprocessing strategies across two retrievers on MIRACL-id dev. BM25 uses $k_1=0.9$, $b=0.4$, and retrieves the top 1000 documents per query. BGE-m3 uses the \texttt{BAAI/bge-m3} dense encoder and a FAISS \texttt{IndexHNSWFlat} index with $M=32$ and \texttt{efConstruction}=200; the Kaggle dense-run scripts use \texttt{efSearch}=1000 at retrieval time. The dense experiments were run in Kaggle GPU sessions, normally with a single exposed CUDA device; the runbook supports multiple devices when the runtime exposes them. BM25 indexing and retrieval are CPU/Lucene jobs.
 
 \subsection{Preprocessing pipeline verification}
 
-\todo{Day~1 task. Report the false-positive rate of Strategy~2 (Naive strip) on a 50-word test set of known non-clitic words ending in `nya'. Report the same set after Strategy~3 (Sastrawi clitic with dictionary guard) to confirm protection.}
+Before full retrieval, the preprocessing pipeline is checked against a 20-entry verification gate: ten single-token canonical cases and ten multi-sentence cases covering anaphoric \id{-nya}, false positives such as \id{punya}, \id{tanya}, \id{hanya}, \id{Kenya}, and \id{Sonya}, and known resolver edge cases. The gate confirms that the dictionary-guarded strategies preserve canonical non-clitic endings while allowing true clitic examples such as \id{rumahnya}, \id{bukunya}, and \id{pidatonya} to be transformed under the stripping conditions.
+
+This verification is not treated as a held-out linguistic benchmark; it is a guard against implementation regressions. The full analysis still reports the Sastrawi dictionary limitation explicitly, because Path~A uses Sastrawi's bundled root list rather than a manually curated exception dictionary. Consequently, some adverbial or lexicalised forms can still be stripped if their apparent root is present in Sastrawi.
 
 \subsection{Indexing}
 
@@ -15,7 +19,9 @@ For each of the five preprocessing strategies, two indices are built per the BM2
 
 \subsection{Rule-based resolver implementation (Strategy 5)}
 
-The rule-based \id{-nya} anaphora resolver is implemented as a three-stage pipeline: (i)~clitic detection using the same dictionary-guarded matcher as Strategies 3 and 4, (ii)~functional-class classification (possessive, definite, anaphoric, nominaliser) using surface-context heuristics over the host word's part-of-speech and the salience of preceding noun phrases, and (iii)~antecedent substitution for occurrences classified as anaphoric, selecting the most recent salient noun phrase from the prior one to two sentences. The pipeline is applied uniformly to all 1.4M MIRACL-id passages. \todo{Report total wall-clock time and CPU profile once implementation is complete.}
+The rule-based \id{-nya} anaphora resolver is implemented as a three-stage pipeline: (i)~clitic detection using the same dictionary-guarded matcher as Strategies 3 and 4, (ii)~functional-class classification (possessive, definite, anaphoric, nominaliser) using surface-context heuristics over the host word and sentence context, and (iii)~antecedent substitution for occurrences classified as anaphoric, selecting a recent salient noun phrase from the prior one to two sentences. The resolver is intentionally deterministic and CPU-only. It is applied uniformly to MIRACL-id passages and queries as part of the same preprocessing sweep as the other strategies, rather than selectively on examples where resolution appears beneficial.
+
+The implementation choice is deliberately conservative: Strategy~5 estimates the deployable value of a cheap in-house resolver, not the value of gold coreference labels or a high-capacity neural resolver. This distinction is important for interpreting the negative H4 result in \secref{sec:results}.
 
 \subsection{Sensitivity stratification}
 

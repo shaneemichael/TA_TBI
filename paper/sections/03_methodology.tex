@@ -24,10 +24,10 @@ Implementation details for each strategy --- including dictionary-guard wrapping
 We evaluate two retriever architectures spanning the sparse--dense spectrum.
 
 \smallskip
-\noindent\textbf{BM25.} Standard BM25 implementation in Pyserini, with $k_1 = 0.9$ and $b = 0.4$ (standard MIRACL configuration). Tokenisation uses the default whitespace-plus-punctuation analyser.
+\noindent\textbf{BM25.} Standard BM25 implementation in Pyserini~\cite{lin2021pyserini}, with $k_1 = 0.9$ and $b = 0.4$ (standard MIRACL configuration). Tokenisation uses the default whitespace-plus-punctuation analyser.
 
 \smallskip
-\noindent\textbf{BGE-m3.} The dense embedding mode of BGE-m3~\cite{chen2024bgem3}, with maximum sequence length capped at 512 tokens. Indices built using FAISS HNSW with $M = 32$ and \texttt{efConstruction} $= 200$.
+\noindent\textbf{BGE-m3.} The dense embedding mode of BGE-m3~\cite{chen2024bgem3}, with maximum sequence length capped at 512 tokens. Indices built using FAISS~\cite{douze2024faiss} HNSW~\cite{malkov2020hnsw} with $M = 32$ and \texttt{efConstruction} $= 200$.
 
 \subsection{Dataset}
 
